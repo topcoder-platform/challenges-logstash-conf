@@ -1,0 +1,170 @@
+input {
+  jdbc {
+    type => "mmatches"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT
+   contest.contest_id id,
+   contest.contest_id _id,
+   contest.name name,
+   contest.start_date startDate,
+   contest.end_date endDate,
+   CASE
+      WHEN
+         (
+            ( registration_segment.start_time < sysdate) 
+            AND 
+            (system_test_segment.end_time > sysdate)  
+         )
+      THEN
+         'ACTIVE' 
+      WHEN
+         (registration_segment.start_time > sysdate)
+      THEN
+         'FUTURE' 
+      WHEN
+         (system_test_segment.end_time < sysdate ) 
+      THEN
+         'PAST' 
+   END
+   status, 
+   contest.start_date startDate, 
+   contest.end_date endDate, 
+   'DATA SCIENCE' track, 
+   'MARATHON_MATCH' subTrack, 
+   round.forum_id forumId, 
+   (
+      SELECT
+         COUNT(*) 
+      FROM
+         INFORMIXOLTP:round_registration r 
+      WHERE
+         r.round_id = round.round_id 
+   )
+   numberofregistrants,
+   round_registration.coder_id userid,
+   registration_segment.start_time registrationstartat,
+   registration_segment.end_time registrationendat,
+   coding_segment.start_time codingstartat,
+   coding_segment.end_time codingendat,
+   system_test_segment.start_time systeststartat,
+   system_test_segment.end_time systestendat,
+   round.round_id roundid,
+   (
+      SELECT
+         round_registration.coder_id || long_comp_result.rated_ind rated 
+      FROM
+         informixoltp:long_comp_result AS long_comp_result 
+      WHERE
+         long_comp_result.round_id = round.round_id 
+         AND long_comp_result.coder_id = round_registration.coder_id
+   )
+   isratedformm,
+   problem.problem_id problemid,
+   contest.contest_id contestid,
+   component.component_id componentid 
+FROM
+   informixoltp:contest AS contest 
+   INNER JOIN
+      informixoltp:round AS round 
+      ON round.contest_id = contest.contest_id 
+   LEFT JOIN
+      INFORMIXOLTP:round_segment AS registration_segment 
+      ON registration_segment.round_id = round.round_id 
+      AND registration_segment.segment_id = 1 
+   LEFT JOIN
+      INFORMIXOLTP:round_segment AS coding_segment 
+      ON coding_segment.round_id = round.round_id 
+      AND coding_segment.segment_id = 2 
+   LEFT JOIN
+      INFORMIXOLTP:round_segment AS system_test_segment 
+      ON system_test_segment.round_id = round.round_id 
+      AND system_test_segment.segment_id = 5 
+   LEFT JOIN
+      informixoltp:round_registration AS round_registration 
+      ON round_registration.round_id = round.round_id 
+   LEFT JOIN
+      INFORMIXOLTP:round_component AS round_component 
+      ON round_component.round_id = round.round_id 
+   LEFT JOIN
+      INFORMIXOLTP:component AS component 
+      ON component.component_id = round_component.component_id 
+   LEFT JOIN
+      INFORMIXOLTP:problem AS problem 
+      ON problem.problem_id = component.problem_id 
+   INNER JOIN
+      tcs_catalog:user AS user_table 
+      ON user_table.user_id = round_registration.coder_id 
+   INNER JOIN
+      informixoltp:long_comp_result AS long_comp_result 
+      ON round.round_id = long_comp_result.round_id 
+      AND long_comp_result.coder_id = round_registration.coder_id 
+WHERE
+   round.round_type_id = 13"
+  }
+}
+
+filter {
+  if [type] == "mmatches" {
+    mutate {
+      rename => { "startdate" => "startDate" }
+      rename => { "enddate" => "endDate" }
+      rename => { "subtrack" => "subTrack" }
+      rename => { "forumid" => "forumId" }
+      rename => { "numberofregistrants" => "numberOfRegistrants" }
+      rename => { "registrationstartat" => "registrationStartAt" }
+      rename => { "registrationendat" => "registrationEndAt" }
+      rename => { "codingstartat" => "codingStartAt" }
+      rename => { "codingendat" => "codingEndAt" }
+      rename => { "systeststartat" => "systemTestStartAt" }
+      rename => { "systestendat" => "systemTestEndAt" }
+      rename => { "roundid" => "roundId" }
+      rename => { "problemid" => "problemId" }
+      rename => { "contestid" => "contestId" }
+      rename => { "componentid" => "componentId" }
+      remove_field => ["@version", "@timestamp", "_id"]
+    }
+    aggregate {
+      task_id => "_%{id}"
+      code => "map['userIds'] ||= Array.new;
+                  if event['userid'] && !map['userIds'].include?(event['userid'])
+                  map['userIds'].push(event['userid']);
+               end
+               event['userIds'] = map['userIds']"
+      timeout => 40
+    }
+    mutate {
+      remove_field => ["userid"]
+    }
+    aggregate {
+      task_id => "_%{id}"
+      code => "map['isRatedForMM'] ||= Array.new;
+                  if event['isratedformm'] && !map['isRatedForMM'].include?(event['isratedformm'])
+                  map['isRatedForMM'].push(event['isratedformm']);
+               end
+               event['isRatedForMM'] = map['isRatedForMM']"
+      timeout => 40
+    }
+    mutate {
+      remove_field => ["isratedformm"]
+    }
+  }
+}
+
+output {
+    amazon_es {
+        hosts => ["{{AWS_HOST}}"]
+        region => "{{AWS_REGION}}"
+        aws_access_key_id => "{{AWS_ACCESS_KEY}}"
+        aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
+        index => "{{INDEX_NAME}}"
+        document_type => "%{type}"
+        document_id => "%{id}"
+    }
+    stdout { codec => rubydebug }
+}

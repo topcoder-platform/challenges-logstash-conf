@@ -1,0 +1,106 @@
+{
+  "mappings": {
+    "challenges": {
+      "properties": {
+         "checkpointSubmissionEndDate": {
+            "type": "date",
+            "format": "dateOptionalTime"
+         },
+         "createdAt": {
+            "type": "date",
+            "format": "dateOptionalTime"
+         },
+         "createdBy": {
+            "type": "string"
+         },
+         "directProjectId": {
+            "type": "long"
+         },
+         "directProjectName": {
+            "type": "string"
+         },
+         "forumId": {
+            "type": "string"
+         },
+         "hasUserSubmittedForReview": {
+            "type": "string",
+            "index":    "not_analyzed"
+         },
+         "id": {
+            "type": "long"
+         },
+         "isPrivate": {
+            "type": "boolean"
+         },
+         "name": {
+            "type": "string"
+         },
+         "numRegistrants": {
+            "type": "long"
+         },
+         "numSubmissions": {
+            "type": "long"
+         },
+         "numberOfCheckpointPrizes": {
+            "type": "long"
+         },
+         "platforms": {
+            "type": "string"
+         },
+         "registrationEndDate": {
+            "type": "date",
+            "format": "dateOptionalTime"
+         },
+         "registrationStartDate": {
+            "type": "date",
+            "format": "dateOptionalTime"
+         },
+         "reviewType": {
+            "type": "string"
+         },
+         "status": {
+            "type": "string"
+         },
+         "subTrack": {
+            "type": "string"
+         },
+         "submissionEndDate": {
+            "type": "date",
+            "format": "dateOptionalTime"
+         },
+         "technologies": {
+            "type": "string"
+         },
+         "totalCheckpointPrize": {
+            "type": "double"
+         },
+         "totalPrize": {
+            "type":"double"
+         },
+         "track": {
+            "type": "string"
+         },
+         "updatedAt": {
+            "type": "date",
+            "format": "dateOptionalTime"
+         },
+         "updatedBy": {
+            "type": "string"
+         },
+         "userIds": {
+            "type": "long",
+            "index":    "not_analyzed"
+         },
+         "submissionViewable": {
+            "type": "boolean"
+         },
+         "isTask": {
+            "type": "boolean"
+         },
+          "groupIds": {
+           "type": "long"
+         }
+    }
+   }
+  }
+}
