@@ -55,11 +55,10 @@ input {
    system_test_segment.end_time systestendat,
    round_registrations.coder_id || room_result.rated_flag isratedforsrm 
 FROM
-   INFORMIXOLTP:contest AS contest 
-   LEFT JOIN
-      INFORMIXOLTP:round AS round 
-      ON round.contest_id = contest.contest_id 
-      AND round.round_type_id = 1 
+   INFORMIXOLTP:round AS round
+   INNER JOIN
+      INFORMIXOLTP:contest AS contest
+      ON round.contest_id = contest.contest_id
    LEFT JOIN
       INFORMIXOLTP:round_registration AS round_registrations 
       ON round_registrations.round_id = round.round_id 
@@ -81,7 +80,8 @@ FROM
    LEFT JOIN
       INFORMIXOLTP:room_result AS room_result
       ON room_result.round_id = round.round_id 
-      AND room_result.coder_id = round_registrations.coder_id"
+      AND room_result.coder_id = round_registrations.coder_id
+   WHERE round.round_type_id = 1"
   }
 }
 
@@ -112,7 +112,7 @@ filter {
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
-      timeout => 40
+      timeout => 300 #5 min timeout
     }
     mutate {
       remove_field => ["userid"]
@@ -125,7 +125,7 @@ filter {
                   map['isRatedForSRM'].push(event['isratedforsrm']);
                end
                event['isRatedForSRM'] = map['isRatedForSRM']"
-      timeout => 40
+      timeout => 300 #5 min timeout
     }
     mutate {
       remove_field => ["isratedforsrm"]

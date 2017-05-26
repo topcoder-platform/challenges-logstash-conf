@@ -148,7 +148,7 @@ filter {
                   map['isRatedForMM'].push(event['isratedformm']);
                end
                event['isRatedForMM'] = map['isRatedForMM']"
-      timeout => 40
+      timeout => 300 #5 min timeout
     }
     mutate {
       remove_field => ["isratedformm"]

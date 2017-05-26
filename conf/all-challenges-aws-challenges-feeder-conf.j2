@@ -197,7 +197,7 @@ filter {
                   map['groupIds'].push(event['groupid']);
                end
                event['groupIds'] = map['groupIds']"
-      timeout => 40
+      timeout => 300 #5min
     }
 	mutate {
       remove_field => ["groupid"]
@@ -214,7 +214,7 @@ filter {
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
-      timeout => 40
+      timeout => 300 #5min
     }
     mutate {
       remove_field => ["userid"]
@@ -226,7 +226,7 @@ filter {
                   map['hasUserSubmittedForReview'].push(event['hasusersubmittedforreview']);
                end
                event['hasUserSubmittedForReview'] = map['hasUserSubmittedForReview']"
-      timeout => 40
+      timeout => 300 #5min
     }
     mutate {
       remove_field => ["hasusersubmittedforreview"]
