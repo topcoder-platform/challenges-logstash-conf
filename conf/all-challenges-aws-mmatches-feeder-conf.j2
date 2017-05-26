@@ -136,7 +136,7 @@ filter {
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
-      timeout => 40
+      timeout => 300 #5 min timeout
     }
     mutate {
       remove_field => ["userid"]
