@@ -1,4 +1,5 @@
 input {
+
   jdbc {
     type => "srms"
     jdbc_driver_library => "ifxjdbc.jar"
@@ -45,26 +46,18 @@ input {
          r.round_id = round.round_id 
    )
    numberofregistrants,
-   round_registrations.coder_id userid,
    round.round_id roundid,
    registration_segment.start_time registrationstartat,
    registration_segment.end_time registrationendat,
    coding_segment.start_time codingstartat,
    coding_segment.end_time codingendat,
    system_test_segment.start_time systeststartat,
-   system_test_segment.end_time systestendat,
-   round_registrations.coder_id || room_result.rated_flag isratedforsrm 
+   system_test_segment.end_time systestendat
 FROM
    INFORMIXOLTP:round AS round
    INNER JOIN
       INFORMIXOLTP:contest AS contest
       ON round.contest_id = contest.contest_id
-   LEFT JOIN
-      INFORMIXOLTP:round_registration AS round_registrations 
-      ON round_registrations.round_id = round.round_id 
-   LEFT JOIN
-      TCS_CATALOG:user AS user_table 
-      ON user_table.user_id = round_registrations.coder_id 
    LEFT JOIN
       INFORMIXOLTP:round_segment AS registration_segment 
       ON registration_segment.round_id = round.round_id 
@@ -76,12 +69,64 @@ FROM
    LEFT JOIN
       INFORMIXOLTP:round_segment AS system_test_segment 
       ON system_test_segment.round_id = round.round_id 
-      AND system_test_segment.segment_id = 5 
-   LEFT JOIN
-      INFORMIXOLTP:room_result AS room_result
-      ON room_result.round_id = round.round_id 
-      AND room_result.coder_id = round_registrations.coder_id
+      AND system_test_segment.segment_id = 5
    WHERE round.round_type_id = 1"
+  }
+
+  jdbc {
+    type => "srms_userIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT DISTINCT
+    contest.contest_id id,
+    round_registrations.coder_id userid
+	FROM
+	   INFORMIXOLTP:round AS round
+	   INNER JOIN
+		  INFORMIXOLTP:contest AS contest
+		  ON round.contest_id = contest.contest_id
+	   LEFT JOIN
+		  INFORMIXOLTP:round_registration AS round_registrations 
+		  ON round_registrations.round_id = round.round_id
+	  LEFT JOIN
+         TCS_CATALOG:user AS user_table 
+         ON user_table.user_id = round_registrations.coder_id
+    WHERE round.round_type_id = 1"
+  }
+  jdbc {
+    type => "srms_isRatedForSRM"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT DISTINCT
+    contest.contest_id id,
+    round_registrations.coder_id || (SELECT CASE
+                WHEN q.count > 0 THEN 'T'
+                ELSE 'F'
+            END
+     FROM
+       (SELECT count(*) AS count
+        FROM INFORMIXOLTP:room_result AS room_result
+        WHERE room_result.round_id = round.round_id
+          AND room_result.coder_id = round_registrations.coder_id AND room_result.rated_flag=1) AS q) isratedforsrm 
+	FROM
+	   INFORMIXOLTP:round AS round
+	   INNER JOIN
+       		  INFORMIXOLTP:contest AS contest
+       		  ON round.contest_id = contest.contest_id
+	   LEFT JOIN
+		  INFORMIXOLTP:round_registration AS round_registrations 
+		  ON round_registrations.round_id = round.round_id
+		WHERE round.round_type_id = 1"
   }
 }
 
@@ -105,30 +150,35 @@ filter {
       rename => { "systestendat" => "systemTestEndAt" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
+  }
+  if [type] == "srms_userIds" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['userIds'] ||= Array.new;
-                  if event['userid'] && !map['userIds'].include?(event['userid'])
+      code => "event['type']='srms';
+	           map['userIds'] ||= Array.new;
+			   if event['userid']
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
-      timeout => 300 #5 min timeout
+      timeout => 180 #3min timeout
     }
     mutate {
-      remove_field => ["userid"]
+      remove_field => ["@version", "@timestamp", "userid"]
     }
-
+  }
+  if [type] == "srms_isRatedForSRM" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['isRatedForSRM'] ||= Array.new;
-                  if event['isratedforsrm'] && !map['isRatedForSRM'].include?(event['isratedforsrm'])
+      code => "event['type']='srms';
+	           map['isRatedForSRM'] ||= Array.new;
+			   if event['isratedforsrm']
                   map['isRatedForSRM'].push(event['isratedforsrm']);
                end
                event['isRatedForSRM'] = map['isRatedForSRM']"
-      timeout => 300 #5 min timeout
+      timeout => 180 #3min timeout
     }
     mutate {
-      remove_field => ["isratedforsrm"]
+      remove_field => ["@version", "@timestamp", "isratedforsrm"]
     }
   }
 }
@@ -142,6 +192,8 @@ output {
         index => "{{INDEX_NAME}}"
         document_type => "%{type}"
         document_id => "%{id}"
+        action => "update"
+        doc_as_upsert => true
     }
     stdout { codec => rubydebug }
 }
