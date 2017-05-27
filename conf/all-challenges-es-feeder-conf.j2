@@ -64,25 +64,8 @@ input {
                      FROM contest_eligibility
                      GROUP BY contest_id
                      HAVING Count(*) > 1)), Cast('f' AS BOOLEAN)) AS isprivate,
-         r.user_id AS userid,
          p.tc_direct_project_id AS directprojectid,
          tcdirect.NAME AS directprojectname,
-         r.user_id ||
-    (SELECT CASE
-                WHEN q.count > 0 THEN 'T'
-                ELSE 'F'
-            END AS hasSubmittedForReview
-     FROM
-       (SELECT count(*) AS count
-        FROM upload u,
-             submission s,
-             RESOURCE rs
-        WHERE u.upload_id = s.upload_id
-          AND rs.user_id = r.user_id
-          AND rs.resource_role_id = 1
-          AND rs.project_id = u.project_id
-          AND u.project_id = p.project_id
-          AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview,
          pvs.value submissionviewable,
     (SELECT CASE
                 WHEN t.count > 0 THEN Cast('t' AS BOOLEAN)
@@ -93,8 +76,7 @@ input {
         FROM project_info pti
         WHERE pti.project_id = p.project_id
           AND pti.project_info_type_id = 82
-          AND pti.value = '1') AS t) AS istask,
-    gce.group_id groupid
+          AND pti.value = '1') AS t) AS istask
   FROM project p
   INNER JOIN project_status_lu pstatus ON pstatus.project_status_id = p.project_status_id
   INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
@@ -115,13 +97,9 @@ input {
   AND pp15.phase_type_id = 15
   LEFT JOIN project_info pidr ON pidr.project_id = p.project_id
   AND pidr.project_info_type_id = 26
-  LEFT JOIN contest_eligibility ce ON ce.contest_id = p.project_id
-  LEFT JOIN group_contest_eligibility gce ON gce.contest_eligibility_id = ce.contest_eligibility_id
-  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
   LEFT JOIN CORPORATE_OLTP:tc_direct_project AS tcdirect ON p.tc_direct_project_id = tcdirect.project_id
   LEFT JOIN project_info pvs ON pvs.project_id = p.project_id
   AND pvs.project_info_type_id = 53
-  INNER JOIN USER u ON u.user_id = r.user_id
   WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
                (
                   SELECT DISTINCT
@@ -161,7 +139,193 @@ input {
                   WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
                  )"
   }
-
+  
+   jdbc {
+    type => "groupIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+	schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT distinct
+         p.project_id id,
+         gce.group_id groupid
+  FROM project p
+  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
+  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id
+  LEFT JOIN contest_eligibility ce ON ce.contest_id = p.project_id
+  LEFT JOIN group_contest_eligibility gce ON gce.contest_eligibility_id = ce.contest_eligibility_id
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                 )"
+  }
+  
+  jdbc {
+    type => "userIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+	schedule => "*/5 * * * *"
+	clean_run=>true
+    statement => "SELECT distinct
+         p.project_id id,
+         r.user_id AS userid
+  FROM project p
+  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
+  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
+  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
+  LEFT JOIN USER u ON u.user_id = r.user_id
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                 )"
+  }
+  
+ jdbc {
+    type => "hasUserSubmittedForReview"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+	clean_run=>true
+    statement => "SELECT distinct
+         p.project_id id,
+         r.user_id ||
+    (SELECT CASE
+                WHEN q.count > 0 THEN 'T'
+                ELSE 'F'
+            END AS hasSubmittedForReview
+     FROM
+       (SELECT count(*) AS count
+        FROM upload u,
+             submission s,
+             RESOURCE rs
+        WHERE u.upload_id = s.upload_id
+          AND rs.user_id = r.user_id
+          AND rs.resource_role_id = 1
+          AND rs.project_id = u.project_id
+          AND u.project_id = p.project_id
+          AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview
+  FROM project p
+  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
+  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
+  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
+  LEFT JOIN USER u ON u.user_id = r.user_id
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                 )"
+  }
+  
   jdbc {
     type => "srms"
     jdbc_driver_library => "ifxjdbc.jar"
@@ -208,27 +372,19 @@ input {
          r.round_id = round.round_id 
    )
    numberofregistrants,
-   round_registrations.coder_id userid,
    round.round_id roundid,
    registration_segment.start_time registrationstartat,
    registration_segment.end_time registrationendat,
    coding_segment.start_time codingstartat,
    coding_segment.end_time codingendat,
    system_test_segment.start_time systeststartat,
-   system_test_segment.end_time systestendat,
-   round_registrations.coder_id || room_result.rated_flag isratedforsrm 
+   system_test_segment.end_time systestendat
 FROM
    INFORMIXOLTP:contest AS contest 
    LEFT JOIN
       INFORMIXOLTP:round AS round 
       ON round.contest_id = contest.contest_id 
-      AND round.round_type_id = 1 
-   LEFT JOIN
-      INFORMIXOLTP:round_registration AS round_registrations 
-      ON round_registrations.round_id = round.round_id 
-   LEFT JOIN
-      TCS_CATALOG:user AS user_table 
-      ON user_table.user_id = round_registrations.coder_id 
+      AND round.round_type_id = 1
    LEFT JOIN
       INFORMIXOLTP:round_segment AS registration_segment 
       ON registration_segment.round_id = round.round_id 
@@ -240,11 +396,62 @@ FROM
    LEFT JOIN
       INFORMIXOLTP:round_segment AS system_test_segment 
       ON system_test_segment.round_id = round.round_id 
-      AND system_test_segment.segment_id = 5 
-   LEFT JOIN
-      INFORMIXOLTP:room_result AS room_result
-      ON room_result.round_id = round.round_id 
-      AND room_result.coder_id = round_registrations.coder_id"
+      AND system_test_segment.segment_id = 5"
+  }
+  jdbc {
+    type => "srms_userIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT DISTINCT
+    contest.contest_id id,
+    round_registrations.coder_id userid
+	FROM
+	   INFORMIXOLTP:contest AS contest 
+	   LEFT JOIN
+		  INFORMIXOLTP:round AS round 
+		  ON round.contest_id = contest.contest_id 
+		  AND round.round_type_id = 1 
+	   LEFT JOIN
+		  INFORMIXOLTP:round_registration AS round_registrations 
+		  ON round_registrations.round_id = round.round_id
+	  LEFT JOIN
+         TCS_CATALOG:user AS user_table 
+         ON user_table.user_id = round_registrations.coder_id"
+  }
+  jdbc {
+    type => "srms_isRatedForSRM"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT DISTINCT
+    contest.contest_id id,
+    round_registrations.coder_id || (SELECT CASE
+                WHEN q.count > 0 THEN 'T'
+                ELSE 'F'
+            END
+     FROM
+       (SELECT count(*) AS count
+        FROM INFORMIXOLTP:room_result AS room_result
+        WHERE room_result.round_id = round.round_id
+          AND room_result.coder_id = round_registrations.coder_id AND room_result.rated_flag=1) AS q) isratedforsrm 
+	FROM
+	   INFORMIXOLTP:contest AS contest 
+	   LEFT JOIN
+		  INFORMIXOLTP:round AS round 
+		  ON round.contest_id = contest.contest_id 
+		  AND round.round_type_id = 1 
+	   LEFT JOIN
+		  INFORMIXOLTP:round_registration AS round_registrations 
+		  ON round_registrations.round_id = round.round_id"
   }
   jdbc {
     type => "mmatches"
@@ -294,7 +501,6 @@ FROM
          r.round_id = round.round_id 
    )
    numberofregistrants,
-   round_registration.coder_id userid,
    registration_segment.start_time registrationstartat,
    registration_segment.end_time registrationendat,
    coding_segment.start_time codingstartat,
@@ -302,16 +508,6 @@ FROM
    system_test_segment.start_time systeststartat,
    system_test_segment.end_time systestendat,
    round.round_id roundid,
-   (
-      SELECT
-         round_registration.coder_id || long_comp_result.rated_ind rated 
-      FROM
-         informixoltp:long_comp_result AS long_comp_result 
-      WHERE
-         long_comp_result.round_id = round.round_id 
-         AND long_comp_result.coder_id = round_registration.coder_id
-   )
-   isratedformm,
    problem.problem_id problemid,
    contest.contest_id contestid,
    component.component_id componentid 
@@ -333,9 +529,6 @@ FROM
       ON system_test_segment.round_id = round.round_id 
       AND system_test_segment.segment_id = 5 
    LEFT JOIN
-      informixoltp:round_registration AS round_registration 
-      ON round_registration.round_id = round.round_id 
-   LEFT JOIN
       INFORMIXOLTP:round_component AS round_component 
       ON round_component.round_id = round.round_id 
    LEFT JOIN
@@ -343,14 +536,67 @@ FROM
       ON component.component_id = round_component.component_id 
    LEFT JOIN
       INFORMIXOLTP:problem AS problem 
-      ON problem.problem_id = component.problem_id 
+      ON problem.problem_id = component.problem_id
+WHERE
+   round.round_type_id = 13"
+  }
+    jdbc {
+    type => "mmatches_userIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT DISTINCT
+   contest.contest_id id,
+   round_registration.coder_id userid
+FROM
+   informixoltp:contest AS contest 
    INNER JOIN
+      informixoltp:round AS round 
+      ON round.contest_id = contest.contest_id 
+   LEFT JOIN
+      informixoltp:round_registration AS round_registration 
+      ON round_registration.round_id = round.round_id  
+   LEFT JOIN
       tcs_catalog:user AS user_table 
-      ON user_table.user_id = round_registration.coder_id 
+      ON user_table.user_id = round_registration.coder_id
+WHERE
+   round.round_type_id = 13"
+  }
+    jdbc {
+    type => "mmatches_isRatedForMM"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    schedule => "*/5 * * * *"
+    clean_run=>true
+    statement => "SELECT DISTINCT
+   contest.contest_id id,
+   round_registration.coder_id || (SELECT CASE
+                WHEN q.count > 0 THEN 'T'
+                ELSE 'F'
+            END
+     FROM
+       (SELECT count(*) AS count
+        FROM INFORMIXOLTP:long_comp_result AS long_comp_result
+        WHERE long_comp_result.round_id = round.round_id
+          AND long_comp_result.coder_id = round_registration.coder_id and long_comp_result.rated_ind = 1) AS q) isratedformm
+FROM
+   informixoltp:contest AS contest 
    INNER JOIN
-      informixoltp:long_comp_result AS long_comp_result 
-      ON round.round_id = long_comp_result.round_id 
-      AND long_comp_result.coder_id = round_registration.coder_id 
+      informixoltp:round AS round 
+      ON round.contest_id = contest.contest_id
+   LEFT JOIN
+      informixoltp:round_registration AS round_registration 
+      ON round_registration.round_id = round.round_id 
+   LEFT JOIN
+      tcs_catalog:user AS user_table 
+      ON user_table.user_id = round_registration.coder_id
 WHERE
    round.round_type_id = 13"
   }
@@ -377,57 +623,60 @@ filter {
       rename => { "numsubmissions" => "numSubmissions" }
       rename => { "registrationenddate" => "registrationEndDate" }
       rename => { "registrationstartdate" => "registrationStartDate" }
-      rename => { "hasusersubmittedforreview" => "hasUserSubmittedForReview" }
       rename => { "totalprize" => "totalPrize" }
       rename => { "submissionviewable" => "submissionViewable" }
       rename => { "istask" => "isTask" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
-	aggregate {
-      task_id => "_%{id}"
-      code => "map['groupIds'] ||= Array.new;
-	           if event['groupid'] && !map['groupIds'].include?(event['groupid'])
-                  map['groupIds'].push(event['groupid']);
-               end
-               event['groupIds'] = map['groupIds']"
-      timeout => 40
-    }
-	mutate {
-      remove_field => ["groupid"]
-    }
- if [groupIds] == [] {
-      mutate {
-        remove_field => ["groupIds"]
-      }
-    }
+  }
+   if [type] == "groupIds" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['userIds'] ||= Array.new;
-                  if event['userid'] && !map['userIds'].include?(event['userid'])
+      code => "event['type']='challenges';
+	           map['groupIds'] ||= Array.new; 
+			   if event['groupid']
+                  map['groupIds'].push(event['groupid']);
+               end
+			   event['groupIds'] = map['groupIds']"
+      timeout => 40
+    }
+    mutate {
+      remove_field => ["@version", "@timestamp", "groupid"]
+    }
+  }
+  if [type] == "userIds" {
+    aggregate {
+      task_id => "_%{id}"
+      code => "event['type']='challenges';
+	           map['userIds'] ||= Array.new;
+			   if event['userid']
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
       timeout => 40
     }
     mutate {
-      remove_field => ["userid"]
+      remove_field => ["@version", "@timestamp", "userid"]
     }
+  }
+  if [type] == "hasUserSubmittedForReview" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['hasUserSubmittedForReview'] ||= Array.new;
-               if event['hasusersubmittedforreview'] && !map['hasUserSubmittedForReview'].include?(event['hasusersubmittedforreview'])
+      code => "event['type']='challenges';
+	           map['hasUserSubmittedForReview'] ||= Array.new;
+			   if event['hasusersubmittedforreview']
                   map['hasUserSubmittedForReview'].push(event['hasusersubmittedforreview']);
                end
                event['hasUserSubmittedForReview'] = map['hasUserSubmittedForReview']"
       timeout => 40
     }
     mutate {
-      remove_field => ["hasusersubmittedforreview"]
+      remove_field => ["@version", "@timestamp", "hasusersubmittedforreview"]
     }
   }
   if [type] == "srms" {
     mutate {
-      convert => { "id" => "integer" }
+	  convert => { "id" => "integer" }
       convert => { "roundid" => "integer" }
       convert => { "numberofregistrants" => "integer"}
       rename => { "startdate" => "startDate" }
@@ -444,30 +693,35 @@ filter {
       rename => { "systestendat" => "systemTestEndAt" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
-
+  }
+  if [type] == "srms_userIds" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['userIds'] ||= Array.new;
-                  if event['userid'] && !map['userIds'].include?(event['userid'])
+      code => "event['type']='srms';
+	           map['userIds'] ||= Array.new;
+			   if event['userid']
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
       timeout => 40
     }
     mutate {
-      remove_field => ["userid"]
+      remove_field => ["@version", "@timestamp", "userid"]
     }
+  }
+  if [type] == "srms_isRatedForSRM" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['isRatedForSRM'] ||= Array.new;
-                  if event['isratedforsrm'] && !map['isRatedForSRM'].include?(event['isratedforsrm'])
+      code => "event['type']='srms';
+	           map['isRatedForSRM'] ||= Array.new;
+			   if event['isratedforsrm']
                   map['isRatedForSRM'].push(event['isratedforsrm']);
                end
                event['isRatedForSRM'] = map['isRatedForSRM']"
       timeout => 40
     }
     mutate {
-      remove_field => ["isratedforsrm"]
+      remove_field => ["@version", "@timestamp", "isratedforsrm"]
     }
   }
   if [type] == "mmatches" {
@@ -484,36 +738,40 @@ filter {
       rename => { "systeststartat" => "systemTestStartAt" }
       rename => { "systestendat" => "systemTestEndAt" }
       rename => { "roundid" => "roundId" }
-      rename => { "isratedformm" => "isRatedForMM" }
       rename => { "problemid" => "problemId" }
       rename => { "contestid" => "contestId" }
       rename => { "componentid" => "componentId" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
+  }
+  if [type] == "mmatches_userIds" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['userIds'] ||= Array.new;
-                  if event['userid'] && !map['userIds'].include?(event['userid'])
+      code => "event['type']='mmatches';
+	           map['userIds'] ||= Array.new;
+			   if event['userid']
                   map['userIds'].push(event['userid']);
                end
                event['userIds'] = map['userIds']"
       timeout => 40
     }
     mutate {
-      remove_field => ["userid"]
+      remove_field => ["@version", "@timestamp", "userid"]
     }
-
+  }
+  if [type] == "mmatches_isRatedForMM" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['isRatedForMM'] ||= Array.new;
-                  if event['isratedformm'] && !map['isRatedForMM'].include?(event['isratedformm'])
+      code => "event['type']='mmatches';
+	           map['isRatedForMM'] ||= Array.new;
+			   if event['isratedformm']
                   map['isRatedForMM'].push(event['isratedformm']);
                end
                event['isRatedForMM'] = map['isRatedForMM']"
       timeout => 40
     }
     mutate {
-      remove_field => ["isratedformm"]
+      remove_field => ["@version", "@timestamp", "isratedformm"]
     }
   }
 }

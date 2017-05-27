@@ -28,19 +28,19 @@ input {
          Nvl(pp2.actual_end_time, pp2.scheduled_end_time) AS submissionenddate,
          review_type_info.value reviewtype,
          forum_id_info.value forumid,
-    (SELECT Count(*)
-     FROM submission s1
-     INNER JOIN upload u1 ON s1.upload_id = u1.upload_id
-     WHERE u1.project_id = p.project_id
-       AND s1.submission_type_id = 1
-       AND s1.submission_status_id <> 5) AS numsubmissions,
-    (SELECT Count(*)
-     FROM RESOURCE r
-     WHERE r.project_id = p.project_id
-       AND r.resource_role_id = 1) AS numregistrants,
-         Nvl(pp15.actual_end_time, pp15.scheduled_end_time) AS checkpointsubmissionenddate,
-         Nvl(
-               (SELECT Sum(pr.number_of_submissions)
+		(SELECT Count(*)
+		 FROM submission s1
+		 INNER JOIN upload u1 ON s1.upload_id = u1.upload_id
+		 WHERE u1.project_id = p.project_id
+		   AND s1.submission_type_id = 1
+		   AND s1.submission_status_id <> 5) AS numsubmissions,
+       (SELECT Count(*)
+		 FROM RESOURCE r
+		 WHERE r.project_id = p.project_id
+		   AND r.resource_role_id = 1) AS numregistrants,
+        Nvl(pp15.actual_end_time, pp15.scheduled_end_time) AS checkpointsubmissionenddate,
+        Nvl(
+              (SELECT Sum(pr.number_of_submissions)
                 FROM prize pr
                 WHERE pr.project_id = p.project_id
                   AND pr.prize_type_id = 14), 0) AS numberofcheckpointprizes,
@@ -62,25 +62,9 @@ input {
                      FROM contest_eligibility
                      GROUP BY contest_id
                      HAVING Count(*) > 1)), Cast('f' AS BOOLEAN)) AS isprivate,
-         r.user_id AS userid,
          p.tc_direct_project_id AS directprojectid,
          tcdirect.NAME AS directprojectname,
-         r.user_id ||
-    (SELECT CASE
-                WHEN q.count > 0 THEN 'T'
-                ELSE 'F'
-            END AS hasSubmittedForReview
-     FROM
-       (SELECT count(*) AS count
-        FROM upload u,
-             submission s,
-             RESOURCE rs
-        WHERE u.upload_id = s.upload_id
-          AND rs.user_id = r.user_id
-          AND rs.resource_role_id = 1
-          AND rs.project_id = u.project_id
-          AND u.project_id = p.project_id
-          AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview,
+         
          pvs.value submissionviewable,
     (SELECT CASE
                 WHEN t.count > 0 THEN Cast('t' AS BOOLEAN)
@@ -91,8 +75,7 @@ input {
         FROM project_info pti
         WHERE pti.project_id = p.project_id
           AND pti.project_info_type_id = 82
-          AND pti.value = '1') AS t) AS istask,
-    gce.group_id groupid
+          AND pti.value = '1') AS t) AS istask
   FROM project p
   INNER JOIN project_status_lu pstatus ON pstatus.project_status_id = p.project_status_id
   INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
@@ -113,16 +96,80 @@ input {
   AND pp15.phase_type_id = 15
   LEFT JOIN project_info pidr ON pidr.project_id = p.project_id
   AND pidr.project_info_type_id = 26
-  LEFT JOIN contest_eligibility ce ON ce.contest_id = p.project_id
-  LEFT JOIN group_contest_eligibility gce ON gce.contest_eligibility_id = ce.contest_eligibility_id
-  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
   LEFT JOIN CORPORATE_OLTP:tc_direct_project AS tcdirect ON p.tc_direct_project_id = tcdirect.project_id
   LEFT JOIN project_info pvs ON pvs.project_id = p.project_id
   AND pvs.project_info_type_id = 53
-  INNER JOIN USER u ON u.user_id = r.user_id
   WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
   }
   
+ jdbc {
+    type => "groupIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    statement => "SELECT distinct
+         p.project_id id,
+         gce.group_id groupid
+  FROM project p
+  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
+  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id
+  LEFT JOIN contest_eligibility ce ON ce.contest_id = p.project_id
+  LEFT JOIN group_contest_eligibility gce ON gce.contest_eligibility_id = ce.contest_eligibility_id
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
+  }
+  
+  jdbc {
+    type => "userIds"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    statement => "SELECT distinct
+         p.project_id id,
+         r.user_id AS userid
+  FROM project p
+  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
+  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
+  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
+  LEFT JOIN USER u ON u.user_id = r.user_id
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
+  }
+  
+ jdbc {
+    type => "hasUserSubmittedForReview"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+    statement => "SELECT distinct
+         p.project_id id,
+         r.user_id ||
+    (SELECT CASE
+                WHEN q.count > 0 THEN 'T'
+                ELSE 'F'
+            END
+     FROM
+       (SELECT count(*) AS count
+        FROM upload u,
+             submission s,
+             RESOURCE rs
+        WHERE u.upload_id = s.upload_id
+          AND rs.user_id = r.user_id
+          AND rs.resource_role_id = 1
+          AND rs.project_id = u.project_id
+          AND u.project_id = p.project_id
+          AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview
+  FROM project p
+  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
+  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
+  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
+  LEFT JOIN USER u ON u.user_id = r.user_id
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
+  }
 }
 
 filter {
@@ -146,52 +193,50 @@ filter {
       rename => { "numsubmissions" => "numSubmissions" }
       rename => { "registrationenddate" => "registrationEndDate" }
       rename => { "registrationstartdate" => "registrationStartDate" }
-      rename => { "hasusersubmittedforreview" => "hasUserSubmittedForReview" }
       rename => { "totalprize" => "totalPrize" }
       rename => { "submissionviewable" => "submissionViewable" }
       rename => { "istask" => "isTask" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
-	aggregate {
-      task_id => "_%{id}"
-      code => "map['groupIds'] ||= Array.new;
-	           if event['groupid'] && !map['groupIds'].include?(event['groupid'])
-                  map['groupIds'].push(event['groupid']);
-               end
-               event['groupIds'] = map['groupIds']"
-      timeout => 40
-    }
-	mutate {
-      remove_field => ["groupid"]
-    }
- if [groupIds] == [] {
-      mutate {
-        remove_field => ["groupIds"]
-      }
-    }
+  }
+  
+ if [type] == "groupIds" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['userIds'] ||= Array.new;
-                  if event['userid'] && !map['userIds'].include?(event['userid'])
-                  map['userIds'].push(event['userid']);
-               end
+      code => "event['type']='challenges';
+	           map['groupIds'] ||= Array.new; 
+               map['groupIds'].push(event['groupid']);
+			   event['groupIds'] = map['groupIds']"
+      timeout => 40
+    }
+    mutate {
+      remove_field => ["@version", "@timestamp", "groupid"]
+    }
+  }
+  if [type] == "userIds" {
+    aggregate {
+      task_id => "_%{id}"
+      code => "event['type']='challenges';
+	           map['userIds'] ||= Array.new;
+               map['userIds'].push(event['userid']);
                event['userIds'] = map['userIds']"
       timeout => 40
     }
     mutate {
-      remove_field => ["userid"]
+      remove_field => ["@version", "@timestamp", "userid"]
     }
+  }
+  if [type] == "hasUserSubmittedForReview" {
     aggregate {
       task_id => "_%{id}"
-      code => "map['hasUserSubmittedForReview'] ||= Array.new;
-               if event['hasusersubmittedforreview'] && !map['hasUserSubmittedForReview'].include?(event['hasusersubmittedforreview'])
-                  map['hasUserSubmittedForReview'].push(event['hasusersubmittedforreview']);
-               end
+      code => "event['type']='challenges';
+	           map['hasUserSubmittedForReview'] ||= Array.new;
+               map['hasUserSubmittedForReview'].push(event['hasusersubmittedforreview']);
                event['hasUserSubmittedForReview'] = map['hasUserSubmittedForReview']"
       timeout => 40
     }
     mutate {
-      remove_field => ["hasusersubmittedforreview"]
+      remove_field => ["@version", "@timestamp", "hasusersubmittedforreview"]
     }
   }
 }
