@@ -152,6 +152,10 @@ filter {
     }
   }
   if [type] == "srms_userIds" {
+    mutate {
+           convert => { "id" => "integer" }
+           convert => { "userid" => "integer" }
+        }
     aggregate {
       task_id => "_%{id}"
       code => "event['type']='srms';
@@ -167,6 +171,9 @@ filter {
     }
   }
   if [type] == "srms_isRatedForSRM" {
+    mutate {
+           convert => { "id" => "integer" }
+        }
     aggregate {
       task_id => "_%{id}"
       code => "event['type']='srms';

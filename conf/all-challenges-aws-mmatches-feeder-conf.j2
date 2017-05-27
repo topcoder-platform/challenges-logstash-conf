@@ -151,6 +151,7 @@ WHERE
 filter {
   if [type] == "mmatches" {
     mutate {
+      convert => { "id" => "integer" }
       rename => { "startdate" => "startDate" }
       rename => { "enddate" => "endDate" }
       rename => { "subtrack" => "subTrack" }
@@ -170,6 +171,11 @@ filter {
     }
   }
   if [type] == "mmatches_userIds" {
+    mutate {
+       convert => { "id" => "integer" }
+       convert => { "userid" => "integer" }
+    }
+
     aggregate {
       task_id => "_%{id}"
       code => "event['type']='mmatches';
@@ -185,6 +191,9 @@ filter {
     }
   }
   if [type] == "mmatches_isRatedForMM" {
+     mutate {
+         convert => { "id" => "integer" }
+      }
     aggregate {
       task_id => "_%{id}"
       code => "event['type']='mmatches';
