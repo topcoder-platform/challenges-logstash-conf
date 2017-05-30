@@ -158,15 +158,15 @@ filter {
         }
     aggregate {
       task_id => "_%{id}"
-      code => "event['type']='srms';
-	           map['userIds'] ||= Array.new;
-			   if event['userid']
-                  map['userIds'].push(event['userid']);
-               end
-               event['userIds'] = map['userIds']"
-      timeout => 180 #3min timeout
-    }
-    mutate {
+      code => "
+           map['type'] = 'srms'
+           map['id'] = event.get('id')
+           map['userIds'] ||= []
+           map['userIds'] << {'userid' => event.get('userid')}
+           event.cancel()
+         "
+      push_previous_map_as_event => true
+      timeout => 40
       remove_field => ["@version", "@timestamp", "userid"]
     }
   }
@@ -176,15 +176,15 @@ filter {
         }
     aggregate {
       task_id => "_%{id}"
-      code => "event['type']='srms';
-	           map['isRatedForSRM'] ||= Array.new;
-			   if event['isratedforsrm']
-                  map['isRatedForSRM'].push(event['isratedforsrm']);
-               end
-               event['isRatedForSRM'] = map['isRatedForSRM']"
-      timeout => 180 #3min timeout
-    }
-    mutate {
+      code => "
+            map['type'] = 'srms'
+            map['id'] = event.get('id')
+            map['isRatedForSRM'] ||= []
+            map['isRatedForSRM'] << {'isratedforsrm' => event.get('isratedforsrm')}
+            event.cancel()
+      "
+      push_previous_map_as_event => true
+      timeout => 40
       remove_field => ["@version", "@timestamp", "isratedforsrm"]
     }
   }
