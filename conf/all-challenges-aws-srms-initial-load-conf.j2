@@ -136,9 +136,12 @@ filter {
            event.cancel()
          "
       push_previous_map_as_event => true
-      timeout => 40
-      remove_field => ["@version", "@timestamp", "userid", "isratedforsrm"]
+      push_map_as_event_on_timeout => true
     }
+
+    mutate {
+            remove_field => ["@version", "@timestamp"]
+        }
   }
 }
 
