@@ -140,7 +140,7 @@ filter {
            map['userIds'] << event.get('userid')
            map['isRatedForSRM'] ||= []
            map['isRatedForSRM'] << event.get('isratedforsrm')
-           map['numberofregistrants'] || = 0
+           map['numberofregistrants'] ||= 0
            map['numberofregistrants'] += 1
            event.cancel()
          "
