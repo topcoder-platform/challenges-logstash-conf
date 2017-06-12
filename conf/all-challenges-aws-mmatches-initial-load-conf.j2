@@ -34,16 +34,7 @@ input {
    contest.end_date endDate, 
    'DATA SCIENCE' track, 
    'MARATHON_MATCH' subTrack, 
-   round.forum_id forumId, 
-   (
-      SELECT
-         COUNT(*) 
-      FROM
-         INFORMIXOLTP:round_registration r 
-      WHERE
-         r.round_id = round.round_id 
-   )
-   numberofregistrants,
+   round.forum_id forumId,
    registration_segment.start_time registrationstartat,
    registration_segment.end_time registrationendat,
    coding_segment.start_time codingstartat,
@@ -126,7 +117,6 @@ filter {
       rename => { "enddate" => "endDate" }
       rename => { "subtrack" => "subTrack" }
       rename => { "forumid" => "forumId" }
-      rename => { "numberofregistrants" => "numberOfRegistrants" }
       rename => { "registrationstartat" => "registrationStartAt" }
       rename => { "registrationendat" => "registrationEndAt" }
       rename => { "codingstartat" => "codingStartAt" }
@@ -143,9 +133,9 @@ filter {
 
   if [type] == "mmatches_userIds" {
       mutate {
-             convert => { "id" => "integer" }
-             convert => { "userid" => "integer" }
-          }
+         convert => { "id" => "integer" }
+         convert => { "userid" => "integer" }
+      }
       aggregate {
         task_id => "userIds_%{id}"
         code => "
@@ -155,11 +145,16 @@ filter {
              map['userIds'] << event.get('userid')
              map['isRatedForMM'] ||= []
              map['isRatedForMM'] << event.get('isratedformm')
+             map['numberofregistrants'] ||= 0
+             map['numberofregistrants'] += 1
              event.cancel()
            "
         push_previous_map_as_event => true
-        timeout => 40
-        remove_field => ["@version", "@timestamp", "userid", "isratedformm"]
+        push_map_as_event_on_timeout => true
+      }
+
+      mutate {
+        remove_field => ["@version", "@timestamp", "tags"]
       }
     }
 }

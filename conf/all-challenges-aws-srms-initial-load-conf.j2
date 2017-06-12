@@ -140,8 +140,8 @@ filter {
     }
 
     mutate {
-            remove_field => ["@version", "@timestamp"]
-        }
+            remove_field => ["@version", "@timestamp", "tags"]
+    }
   }
 }
 
