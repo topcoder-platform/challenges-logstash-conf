@@ -8,7 +8,6 @@ input {
     jdbc_password => "{{DB_PASSWORD}}"
     statement => "SELECT
    contest.contest_id id,
-   contest.contest_id _id,
    contest.name name,
    contest.start_date startDate,
    contest.end_date endDate,
@@ -138,7 +137,7 @@ filter {
       rename => { "problemid" => "problemId" }
       rename => { "contestid" => "contestId" }
       rename => { "componentid" => "componentId" }
-      remove_field => ["@version", "@timestamp", "_id"]
+      remove_field => ["@version", "@timestamp"]
     }
   }
 

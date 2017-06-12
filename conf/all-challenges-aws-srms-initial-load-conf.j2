@@ -34,16 +34,7 @@ input {
    contest.end_date enddate, 
    'DATA SCIENCE' track, 
    'SRM' subtrack, 
-   round.forum_id forumid, 
-   (
-      SELECT
-         COUNT(*) 
-      FROM
-         INFORMIXOLTP:round_registration r 
-      WHERE
-         r.round_id = round.round_id 
-   )
-   numberofregistrants,
+   round.forum_id forumid,
    round.round_id roundid,
    registration_segment.start_time registrationstartat,
    registration_segment.end_time registrationendat,
@@ -115,7 +106,6 @@ filter {
       rename => { "enddate" => "endDate" }
       rename => { "subtrack" => "subTrack" }
       rename => { "forumid" => "forumId" }
-      rename => { "numberofregistrants" => "numberOfRegistrants" }
       rename => { "roundid" => "roundId" }
       rename => { "registrationstartat" => "registrationStartAt" }
       rename => { "registrationendat" => "registrationEndAt" }
@@ -140,6 +130,9 @@ filter {
            map['userIds'] << event.get('userid')
            map['isRatedForSRM'] ||= []
            map['isRatedForSRM'] << event.get('isratedforsrm')
+           map['numberofregistrants'] || = 0
+           map['numberofregistrants'] += 1
+
            event.cancel()
          "
       push_previous_map_as_event => true
