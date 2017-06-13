@@ -76,7 +76,7 @@ FROM
       ON problem.problem_id = component.problem_id
 WHERE
    round.round_type_id = 13
-   AND registration_segment.start_time > (sysdate - 60 units days)"
+   AND registration_segment.start_time > (sysdate - 30 units day)"
   }
   jdbc {
     type => "mmatches_userIds"
@@ -112,7 +112,7 @@ FROM
       ON user_table.user_id = round_registration.coder_id
 WHERE
    round.round_type_id = 13
-   AND registration_segment.start_time > (sysdate - 60 units days)"
+   AND registration_segment.start_time > (sysdate - 30 units day)"
   }
 }
 
