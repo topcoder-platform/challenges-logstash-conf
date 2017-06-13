@@ -188,7 +188,9 @@ filter {
             map['type']='challenges';
             map['id'] = event.get('id')
 	        map['groupIds'] ||= []
-	        map['groupIds'] << event.get('groupid')
+	        if event.get('groupid') && !map['groupIds'].include?(event.get('groupid'))
+                map['groupIds'] << event.get('groupid')
+            end
 
 	        event.cancel()
           "
@@ -199,6 +201,10 @@ filter {
     mutate {
       remove_field => ["@version", "@timestamp"]
     }
+
+    if [groupIds] == [] {
+      drop{ }
+    }
   }
   if [type] == "userIds" {
     aggregate {
@@ -207,9 +213,14 @@ filter {
             map['type']='challenges';
             map['id'] = event.get('id')
             map['userIds'] ||= []
-            map['userIds'] << event.get('userid')
+            if event.get('userid') && !map['userIds'].include?(event.get('userid'))
+                map['userIds'] << event.get('userid')
+            end
+
             map['hasUserSubmittedForReview'] ||= []
-            map['hasUserSubmittedForReview'] << event.get('hasusersubmittedforreview')
+            if event.get('hasusersubmittedforreview') && !map['hasUserSubmittedForReview'].include?(event.get('hasusersubmittedforreview'))
+                map['hasUserSubmittedForReview'] << event.get('hasusersubmittedforreview')
+            end
 
             event.cancel()
             "

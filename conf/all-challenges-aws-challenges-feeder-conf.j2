@@ -208,63 +208,7 @@ input {
     clean_run=>true
     statement => "SELECT distinct
          p.project_id id,
-         r.user_id AS userid
-  FROM project p
-  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
-  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
-  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
-  LEFT JOIN USER u ON u.user_id = r.user_id
-  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
-               (
-                  SELECT DISTINCT
-                   (project_id) 
-                  FROM
-                     project 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
-                  UNION
-                  SELECT DISTINCT
-                    (project_id) 
-                  FROM
-                     project_info 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
-                  UNION
-                  SELECT DISTINCT
-                  (project_id) 
-                  FROM
-                     project_phase 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
-                  UNION
-                  SELECT DISTINCT
-                    (project_id) 
-                  FROM
-                     upload 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
-                  UNION
-                  SELECT DISTINCT
-                   (project_id) 
-                  FROM
-                     resource 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
-                  UNION
-                  SELECT DISTINCT
-                   (project_id) 
-                  FROM
-                     prize 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
-                 )"
-  }
-  
- jdbc {
-    type => "hasUserSubmittedForReview"
-    jdbc_driver_library => "ifxjdbc.jar"
-    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
-    jdbc_connection_string => "{{DB_CONNECTION}}"
-    jdbc_user => "{{DB_USER}}"
-    jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
-    clean_run=>true
-    statement => "SELECT distinct
-         p.project_id id,
+         r.user_id AS userid,
          r.user_id ||
     (SELECT CASE
                 WHEN q.count > 0 THEN 'T'
@@ -357,54 +301,50 @@ filter {
   }
   if [type] == "groupIds" {
     aggregate {
-          task_id => "groupIds_%{id}"
-          code => "
-                map['type']='challenges';
-                map['id'] = event.get('id')
-    	        map['groupIds'] ||= []
-    	        map['groupIds'] << event.get('groupid')
+      task_id => "groupIds_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+	        map['groupIds'] ||= []
+	        if event.get('groupid') && !map['groupIds'].include?(event.get('groupid'))
+                map['groupIds'] << event.get('groupid')
+            end
 
-    	        event.cancel()
-              "
-          push_previous_map_as_event => true
-          push_map_as_event_on_timeout => true
+	        event.cancel()
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
     }
+
     mutate {
       remove_field => ["@version", "@timestamp"]
+    }
+
+    if [groupIds] == [] {
+      drop{ }
     }
   }
   if [type] == "userIds" {
     aggregate {
-          task_id => "userIds_%{id}"
-          code => "
-                map['type']='challenges';
-                map['id'] = event.get('id')
-                map['userIds'] ||= []
+      task_id => "userIds_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['userIds'] ||= []
+            if event.get('userid') && !map['userIds'].include?(event.get('userid'))
                 map['userIds'] << event.get('userid')
+            end
 
-                event.cancel()
-                "
-            push_previous_map_as_event => true
-            push_map_as_event_on_timeout => true
-        }
-    mutate {
-      remove_field => ["@version", "@timestamp"]
+            map['hasUserSubmittedForReview'] ||= []
+            if event.get('hasusersubmittedforreview') && !map['hasUserSubmittedForReview'].include?(event.get('hasusersubmittedforreview'))
+                map['hasUserSubmittedForReview'] << event.get('hasusersubmittedforreview')
+            end
+
+            event.cancel()
+            "
+        push_previous_map_as_event => true
+        push_map_as_event_on_timeout => true
     }
-  }
-  if [type] == "hasUserSubmittedForReview" {
-    aggregate {
-          task_id => "hasUserSubmittedForReview_%{id}"
-          code => "
-                      map['type']='challenges';
-                      map['id'] = event.get('id')
-                      map['hasUserSubmittedForReview'] ||= []
-                      map['hasUserSubmittedForReview'] << event.get('hasusersubmittedforreview')
-
-                      event.cancel()
-                      "
-          push_previous_map_as_event => true
-          push_map_as_event_on_timeout => true
-        }
     mutate {
       remove_field => ["@version", "@timestamp"]
     }
@@ -412,30 +352,16 @@ filter {
 }
 
 output {
-    if "AWS" == "{{OUTPUT_DESTINATION}}" {
-        amazon_es {
-                hosts => ["{{AWS_HOST}}"]
-                region => "{{AWS_REGION}}"
-                aws_access_key_id => "{{AWS_ACCESS_KEY}}"
-                aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
-                index => "{{INDEX_NAME}}"
-                document_type => "%{type}"
-                document_id => "%{id}"
-                action => "update"
-                doc_as_upsert => true
-            }
-    } else {
-        elasticsearch {
-            hosts => "{{ES_HOST_PORT}}"
-            index => "{{INDEX_NAME}}"
-            document_type => "%{type}"
-            document_id => "%{id}"
-            action => "update"
-            doc_as_upsert => true
-          }
+    amazon_es {
+        hosts => ["{{AWS_HOST}}"]
+        region => "{{AWS_REGION}}"
+        aws_access_key_id => "{{AWS_ACCESS_KEY}}"
+        aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
+        index => "{{INDEX_NAME}}"
+        document_type => "%{type}"
+        document_id => "%{id}"
+		action => "update"
+        doc_as_upsert => true
     }
-
-    if "YES" == "{{ENABLE_DEBUG}}" {
-         stdout { codec => rubydebug }
-    }
+    stdout { codec => rubydebug }
 }
