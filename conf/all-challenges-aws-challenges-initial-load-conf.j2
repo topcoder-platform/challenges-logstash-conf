@@ -127,40 +127,23 @@ input {
     jdbc_password => "{{DB_PASSWORD}}"
     statement => "SELECT distinct
          p.project_id id,
-         r.user_id AS userid
-  FROM project p
-  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
-  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
-  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
-  LEFT JOIN USER u ON u.user_id = r.user_id
-  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
-  }
-  
- jdbc {
-    type => "hasUserSubmittedForReview"
-    jdbc_driver_library => "ifxjdbc.jar"
-    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
-    jdbc_connection_string => "{{DB_CONNECTION}}"
-    jdbc_user => "{{DB_USER}}"
-    jdbc_password => "{{DB_PASSWORD}}"
-    statement => "SELECT distinct
-         p.project_id id,
+         r.user_id AS userid,
          r.user_id ||
-    (SELECT CASE
-                WHEN q.count > 0 THEN 'T'
-                ELSE 'F'
-            END AS hasSubmittedForReview
-     FROM
-       (SELECT count(*) AS count
-        FROM upload u,
-             submission s,
-             RESOURCE rs
-        WHERE u.upload_id = s.upload_id
-          AND rs.user_id = r.user_id
-          AND rs.resource_role_id = 1
-          AND rs.project_id = u.project_id
-          AND u.project_id = p.project_id
-          AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview
+            (SELECT CASE
+                        WHEN q.count > 0 THEN 'T'
+                        ELSE 'F'
+                    END AS hasSubmittedForReview
+             FROM
+               (SELECT count(*) AS count
+                FROM upload u,
+                     submission s,
+                     RESOURCE rs
+                WHERE u.upload_id = s.upload_id
+                  AND rs.user_id = r.user_id
+                  AND rs.resource_role_id = 1
+                  AND rs.project_id = u.project_id
+                  AND u.project_id = p.project_id
+                  AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview
   FROM project p
   INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
   INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
@@ -168,6 +151,7 @@ input {
   LEFT JOIN USER u ON u.user_id = r.user_id
   WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
   }
+
 }
 
 filter {
@@ -224,29 +208,13 @@ filter {
             map['id'] = event.get('id')
             map['userIds'] ||= []
             map['userIds'] << event.get('userid')
+            map['hasUserSubmittedForReview'] ||= []
+            map['hasUserSubmittedForReview'] << event.get('hasusersubmittedforreview')
 
             event.cancel()
             "
         push_previous_map_as_event => true
         push_map_as_event_on_timeout => true
-    }
-    mutate {
-      remove_field => ["@version", "@timestamp"]
-    }
-  }
-  if [type] == "hasUserSubmittedForReview" {
-    aggregate {
-      task_id => "hasUserSubmittedForReview_%{id}"
-      code => "
-                  map['type']='challenges';
-                  map['id'] = event.get('id')
-                  map['hasUserSubmittedForReview'] ||= []
-                  map['hasUserSubmittedForReview'] << event.get('hasusersubmittedforreview')
-
-                  event.cancel()
-                  "
-      push_previous_map_as_event => true
-      push_map_as_event_on_timeout => true
     }
     mutate {
       remove_field => ["@version", "@timestamp"]
