@@ -6,11 +6,8 @@ input {
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
-    clean_run=>true
     statement => "SELECT
    contest.contest_id id,
-   contest.contest_id _id,
    contest.name name,
    contest.start_date startDate,
    contest.end_date endDate,
@@ -75,8 +72,7 @@ FROM
       INFORMIXOLTP:problem AS problem 
       ON problem.problem_id = component.problem_id
 WHERE
-   round.round_type_id = 13
-   AND registration_segment.start_time > (sysdate - 30 units day)"
+   round.round_type_id = 13"
   }
   jdbc {
     type => "mmatches_userIds"
@@ -85,8 +81,6 @@ WHERE
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
-    clean_run=>true
     statement => "SELECT DISTINCT
    contest.contest_id id,
    round_registration.coder_id userid,
@@ -111,8 +105,7 @@ FROM
       tcs_catalog:user AS user_table 
       ON user_table.user_id = round_registration.coder_id
 WHERE
-   round.round_type_id = 13
-   AND registration_segment.start_time > (sysdate - 30 units day)"
+   round.round_type_id = 13"
   }
 }
 
@@ -134,15 +127,15 @@ filter {
       rename => { "problemid" => "problemId" }
       rename => { "contestid" => "contestId" }
       rename => { "componentid" => "componentId" }
-      remove_field => ["@version", "@timestamp", "_id"]
+      remove_field => ["@version", "@timestamp"]
     }
   }
 
   if [type] == "mmatches_userIds" {
       mutate {
-             convert => { "id" => "integer" }
-             convert => { "userid" => "integer" }
-          }
+         convert => { "id" => "integer" }
+         convert => { "userid" => "integer" }
+      }
       aggregate {
         task_id => "userIds_%{id}"
         code => "
@@ -161,8 +154,8 @@ filter {
       }
 
       mutate {
-          remove_field => ["@version", "@timestamp", "tags"]
-        }
+        remove_field => ["@version", "@timestamp", "tags"]
+      }
     }
 }
 
