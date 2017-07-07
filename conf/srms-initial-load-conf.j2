@@ -7,8 +7,6 @@ input {
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
-    clean_run=>true
     statement => "SELECT
    contest.contest_id id,
    contest.contest_id _id,
@@ -16,26 +14,26 @@ input {
    CASE
       WHEN
          (
-            (registration_segment.start_time < sysdate)
-            AND
+            (registration_segment.start_time < sysdate) 
+            AND 
             (system_test_segment.end_time > sysdate)
          )
       THEN
-         'ACTIVE'
+         'ACTIVE' 
       WHEN
          (registration_segment.start_time > sysdate)
       THEN
-         'FUTURE'
+         'FUTURE' 
       WHEN
          (system_test_segment.end_time < sysdate)
       THEN
-         'PAST'
+         'PAST' 
    END
-   status,
-   contest.start_date startdate,
-   contest.end_date enddate,
-   'DATA SCIENCE' track,
-   'SRM' subtrack,
+   status, 
+   contest.start_date startdate, 
+   contest.end_date enddate, 
+   'DATA SCIENCE' track, 
+   'SRM' subtrack, 
    round.forum_id forumid,
    round.round_id roundid,
    registration_segment.start_time registrationstartat,
@@ -50,19 +48,18 @@ FROM
       INFORMIXOLTP:contest AS contest
       ON round.contest_id = contest.contest_id
    LEFT JOIN
-      INFORMIXOLTP:round_segment AS registration_segment
-      ON registration_segment.round_id = round.round_id
-      AND registration_segment.segment_id = 1
+      INFORMIXOLTP:round_segment AS registration_segment 
+      ON registration_segment.round_id = round.round_id 
+      AND registration_segment.segment_id = 1 
    LEFT JOIN
-      INFORMIXOLTP:round_segment AS coding_segment
-      ON coding_segment.round_id = round.round_id
-      AND coding_segment.segment_id = 2
+      INFORMIXOLTP:round_segment AS coding_segment 
+      ON coding_segment.round_id = round.round_id 
+      AND coding_segment.segment_id = 2 
    LEFT JOIN
-      INFORMIXOLTP:round_segment AS system_test_segment
-      ON system_test_segment.round_id = round.round_id
+      INFORMIXOLTP:round_segment AS system_test_segment 
+      ON system_test_segment.round_id = round.round_id 
       AND system_test_segment.segment_id = 5
-   WHERE round.round_type_id = 1 AND
-    registration_segment.start_time > (sysdate - 60 units day)"
+   WHERE round.round_type_id = 1"
   }
 
   jdbc {
@@ -72,8 +69,6 @@ FROM
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
-    clean_run=>true
     statement => "SELECT DISTINCT
     contest.contest_id id,
     round_registrations.coder_id userid,
@@ -91,18 +86,13 @@ FROM
 	   INNER JOIN
 		  INFORMIXOLTP:contest AS contest
 		  ON round.contest_id = contest.contest_id
-     LEFT JOIN
-        INFORMIXOLTP:round_segment AS registration_segment
-        ON registration_segment.round_id = round.round_id
-        AND registration_segment.segment_id = 1
 	   LEFT JOIN
 		  INFORMIXOLTP:round_registration AS round_registrations 
 		  ON round_registrations.round_id = round.round_id
 	  LEFT JOIN
          TCS_CATALOG:user AS user_table 
          ON user_table.user_id = round_registrations.coder_id
-    WHERE round.round_type_id = 1 AND
-      registration_segment.start_time > (sysdate - 60 units day)"
+    WHERE round.round_type_id = 1"
   }
 }
 
@@ -142,6 +132,7 @@ filter {
            map['isRatedForSRM'] << event.get('isratedforsrm')
            map['numberofregistrants'] ||= 0
            map['numberofregistrants'] += 1
+
            event.cancel()
          "
       push_previous_map_as_event => true
@@ -155,16 +146,32 @@ filter {
 }
 
 output {
+  {% if ES_ENV == 'AWS' %}
     amazon_es {
-        hosts => ["{{AWS_HOST}}"]
-        region => "{{AWS_REGION}}"
-        aws_access_key_id => "{{AWS_ACCESS_KEY}}"
-        aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
-        index => "{{INDEX_NAME}}"
-        document_type => "%{type}"
-        document_id => "%{id}"
-        action => "update"
-        doc_as_upsert => true
+      hosts => ["{{AWS_HOST}}"]
+      region => "{{AWS_REGION}}"
+      aws_access_key_id => "{{AWS_ACCESS_KEY}}"
+      aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
     }
-    stdout { codec => rubydebug }
+  {% endif %}
+
+  {% if ES_ENV == 'DEV' %}
+    elasticsearch {
+      hosts => "{{ES_HOST_PORT}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
+    }
+  {% endif %}
+
+  {% if ENABLE_DEBUG == 'YES' %}
+      stdout { codec => rubydebug }
+  {% endif %}
 }

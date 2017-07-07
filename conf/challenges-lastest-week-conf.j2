@@ -98,8 +98,46 @@ input {
   LEFT JOIN CORPORATE_OLTP:tc_direct_project AS tcdirect ON p.tc_direct_project_id = tcdirect.project_id
   LEFT JOIN project_info pvs ON pvs.project_id = p.project_id
   AND pvs.project_info_type_id = 53
-  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day) 
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                 )"
   }
+  
   jdbc {
     type => "groupIds"
     jdbc_driver_library => "ifxjdbc.jar"
@@ -115,7 +153,44 @@ input {
   INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id
   LEFT JOIN contest_eligibility ce ON ce.contest_id = p.project_id
   LEFT JOIN group_contest_eligibility gce ON gce.contest_eligibility_id = ce.contest_eligibility_id
-  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day) 
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                 )"
   }
   
   jdbc {
@@ -149,7 +224,44 @@ input {
   INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
   LEFT JOIN RESOURCE r ON p.project_id = r.project_id
   LEFT JOIN USER u ON u.user_id = r.user_id
-  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3)"
+  WHERE pcl.project_category_id NOT IN (27,37) AND pp1.phase_status_id IN (2,3) AND p.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day) 
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 7 units day)
+                 )"
   }
 
 }
@@ -234,16 +346,32 @@ filter {
 }
 
 output {
+  {% if ES_ENV == 'AWS' %}
     amazon_es {
-        hosts => ["{{AWS_HOST}}"]
-        region => "{{AWS_REGION}}"
-        aws_access_key_id => "{{AWS_ACCESS_KEY}}"
-        aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
-        index => "{{INDEX_NAME}}"
-        document_type => "%{type}"
-        document_id => "%{id}"
-		action => "update"
-        doc_as_upsert => true
+      hosts => ["{{AWS_HOST}}"]
+      region => "{{AWS_REGION}}"
+      aws_access_key_id => "{{AWS_ACCESS_KEY}}"
+      aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
     }
-    stdout { codec => rubydebug }
+  {% endif %}
+
+  {% if ES_ENV == 'DEV' %}
+    elasticsearch {
+      hosts => "{{ES_HOST_PORT}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
+    }
+  {% endif %}
+
+  {% if ENABLE_DEBUG == 'YES' %}
+      stdout { codec => rubydebug }
+  {% endif %}
 }

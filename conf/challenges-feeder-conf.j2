@@ -6,7 +6,7 @@ input {
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
+    schedule => "* * * * *"
     clean_run=>true
     statement => "SELECT p.create_user createdby,
          p.create_date createdat,
@@ -106,37 +106,37 @@ input {
                    (project_id) 
                   FROM
                      project 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                     (project_id) 
                   FROM
                      project_info 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                   (project_id) 
                   FROM
                      project_phase 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                     (project_id) 
                   FROM
                      upload 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                    (project_id) 
                   FROM
                      resource 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                    (project_id) 
                   FROM
                      prize 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                  )"
   }
   
@@ -147,7 +147,7 @@ input {
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
+    schedule => "* * * * *"
     clean_run=>true
     statement => "SELECT distinct
          p.project_id id,
@@ -163,37 +163,37 @@ input {
                    (project_id) 
                   FROM
                      project 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                     (project_id) 
                   FROM
                      project_info 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                   (project_id) 
                   FROM
                      project_phase 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                     (project_id) 
                   FROM
                      upload 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                    (project_id) 
                   FROM
                      resource 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                    (project_id) 
                   FROM
                      prize 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                  )"
   }
   
@@ -204,7 +204,7 @@ input {
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
-    schedule => "*/5 * * * *"
+    schedule => "* * * * *"
     clean_run=>true
     statement => "SELECT distinct
          p.project_id id,
@@ -236,37 +236,37 @@ input {
                    (project_id) 
                   FROM
                      project 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute) 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                     (project_id) 
                   FROM
                      project_info 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                   (project_id) 
                   FROM
                      project_phase 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                     (project_id) 
                   FROM
                      upload 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                    (project_id) 
                   FROM
                      resource 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                   UNION
                   SELECT DISTINCT
                    (project_id) 
                   FROM
                      prize 
-                  WHERE modify_date < sysdate AND modify_date > (sysdate - 10 units minute)
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                  )"
   }
 
@@ -352,16 +352,32 @@ filter {
 }
 
 output {
+  {% if ES_ENV == 'AWS' %}
     amazon_es {
-        hosts => ["{{AWS_HOST}}"]
-        region => "{{AWS_REGION}}"
-        aws_access_key_id => "{{AWS_ACCESS_KEY}}"
-        aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
-        index => "{{INDEX_NAME}}"
-        document_type => "%{type}"
-        document_id => "%{id}"
-		action => "update"
-        doc_as_upsert => true
+      hosts => ["{{AWS_HOST}}"]
+      region => "{{AWS_REGION}}"
+      aws_access_key_id => "{{AWS_ACCESS_KEY}}"
+      aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
     }
-    stdout { codec => rubydebug }
+  {% endif %}
+
+  {% if ES_ENV == 'DEV' %}
+    elasticsearch {
+      hosts => "{{ES_HOST_PORT}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
+    }
+  {% endif %}
+
+  {% if ENABLE_DEBUG == 'YES' %}
+      stdout { codec => rubydebug }
+  {% endif %}
 }

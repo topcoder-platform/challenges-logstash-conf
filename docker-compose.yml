@@ -1,0 +1,59 @@
+version: '2'
+services:
+  elasticsearch:
+    image: elasticsearch:2.3
+    ports:
+      - 9200:9200
+      - 9300:9300
+  challenges-feeder:
+    image: appiriodevops/challenges-logstash-conf:dev
+    links:
+      - "elasticsearch"
+    environment:
+      - INDEX_NAME=challenges
+      - CONF_FILENAME=challenges-feeder
+      - DB_CONNECTION
+      - DB_USER
+      - DB_PASSWORD
+      - ENABLE_DEBUG
+      - ES_ENV
+      - ES_HOST_PORT
+      - AWS_HOST
+      - AWS_REGION
+      - AWS_ACCESS_KEY
+      - AWS_ACCESS_SECRET
+  mmatches-feeder:
+    image: appiriodevops/challenges-logstash-conf:dev
+    links:
+      - "elasticsearch"
+    environment:
+      - INDEX_NAME=mmatches
+      - CONF_FILENAME=mmatches-feeder
+      - DB_CONNECTION
+      - DB_USER
+      - DB_PASSWORD
+      - ENABLE_DEBUG
+      - ES_ENV
+      - ES_HOST_PORT
+      - AWS_HOST
+      - AWS_REGION
+      - AWS_ACCESS_KEY
+      - AWS_ACCESS_SECRET
+  srms-feeder:
+    image: appiriodevops/challenges-logstash-conf:dev
+    links:
+      - "elasticsearch"
+    environment:
+      - INDEX_NAME=srms
+      - CONF_FILENAME=srms-feeder
+      - DB_CONNECTION
+      - DB_USER
+      - DB_PASSWORD
+      - ENABLE_DEBUG
+      - ES_ENV
+      - ES_HOST_PORT
+      - AWS_HOST
+      - AWS_REGION
+      - AWS_ACCESS_KEY
+      - AWS_ACCESS_SECRET
+

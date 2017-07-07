@@ -167,16 +167,32 @@ filter {
 }
 
 output {
+  {% if ES_ENV == 'AWS' %}
     amazon_es {
-        hosts => ["{{AWS_HOST}}"]
-        region => "{{AWS_REGION}}"
-        aws_access_key_id => "{{AWS_ACCESS_KEY}}"
-        aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
-        index => "{{INDEX_NAME}}"
-        document_type => "%{type}"
-        document_id => "%{id}"
-        action => "update"
-        doc_as_upsert => true
+      hosts => ["{{AWS_HOST}}"]
+      region => "{{AWS_REGION}}"
+      aws_access_key_id => "{{AWS_ACCESS_KEY}}"
+      aws_secret_access_key => "{{AWS_ACCESS_SECRET}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
     }
-    stdout { codec => rubydebug }
+  {% endif %}
+
+  {% if ES_ENV == 'DEV' %}
+    elasticsearch {
+      hosts => "{{ES_HOST_PORT}}"
+      index => "{{INDEX_NAME}}"
+      document_type => "%{type}"
+      document_id => "%{id}"
+      action => "update"
+      doc_as_upsert => true
+    }
+  {% endif %}
+
+  {% if ENABLE_DEBUG == 'YES' %}
+      stdout { codec => rubydebug }
+  {% endif %}
 }
