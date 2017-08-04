@@ -5,6 +5,25 @@ services:
     ports:
       - 9200:9200
       - 9300:9300
+
+  challenges-feeder-initial-load:
+    image: appiriodevops/challenges-logstash-conf:dev
+    links:
+      - "elasticsearch"
+    environment:
+      - INDEX_NAME=challenges
+      - CONF_FILENAME=challenges-feeder
+      - INITIAL_LOAD=YES
+      - DB_CONNECTION
+      - DB_USER
+      - DB_PASSWORD
+      - ENABLE_DEBUG
+      - ES_ENV
+      - ES_HOST_PORT
+      - AWS_HOST
+      - AWS_REGION
+      - AWS_ACCESS_KEY
+      - AWS_ACCESS_SECRET
   challenges-feeder:
     image: appiriodevops/challenges-logstash-conf:dev
     links:
@@ -12,6 +31,25 @@ services:
     environment:
       - INDEX_NAME=challenges
       - CONF_FILENAME=challenges-feeder
+      - INITIAL_LOAD=NO
+      - DB_CONNECTION
+      - DB_USER
+      - DB_PASSWORD
+      - ENABLE_DEBUG
+      - ES_ENV
+      - ES_HOST_PORT
+      - AWS_HOST
+      - AWS_REGION
+      - AWS_ACCESS_KEY
+      - AWS_ACCESS_SECRET
+  mmatches-feeder-initial-load:
+    image: appiriodevops/challenges-logstash-conf:dev
+    links:
+      - "elasticsearch"
+    environment:
+      - INDEX_NAME=mmatches
+      - CONF_FILENAME=mmatches-feeder
+      - INITIAL_LOAD=YES
       - DB_CONNECTION
       - DB_USER
       - DB_PASSWORD
@@ -29,6 +67,25 @@ services:
     environment:
       - INDEX_NAME=mmatches
       - CONF_FILENAME=mmatches-feeder
+      - INITIAL_LOAD=NO
+      - DB_CONNECTION
+      - DB_USER
+      - DB_PASSWORD
+      - ENABLE_DEBUG
+      - ES_ENV
+      - ES_HOST_PORT
+      - AWS_HOST
+      - AWS_REGION
+      - AWS_ACCESS_KEY
+      - AWS_ACCESS_SECRET
+  srms-feeder-initial-load:
+    image: appiriodevops/challenges-logstash-conf:dev
+    links:
+      - "elasticsearch"
+    environment:
+      - INDEX_NAME=srms
+      - CONF_FILENAME=srms-feeder
+      - INITIAL_LOAD=YES
       - DB_CONNECTION
       - DB_USER
       - DB_PASSWORD
@@ -46,6 +103,7 @@ services:
     environment:
       - INDEX_NAME=srms
       - CONF_FILENAME=srms-feeder
+      - INITIAL_LOAD=NO
       - DB_CONNECTION
       - DB_USER
       - DB_PASSWORD

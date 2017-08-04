@@ -6,11 +6,14 @@ input {
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
+    
+    {% if INITIAL_LOAD == 'NO' %}
     schedule => "*/5 * * * *"
     clean_run=>true
+    {% endif %}
+    
     statement => "SELECT
    contest.contest_id id,
-   contest.contest_id _id,
    contest.name name,
    contest.start_date startDate,
    contest.end_date endDate,
@@ -76,7 +79,9 @@ FROM
       ON problem.problem_id = component.problem_id
 WHERE
    round.round_type_id = 13
-   AND registration_segment.start_time > (sysdate - 30 units day)"
+   {% if INITIAL_LOAD == 'NO' %}
+   	AND registration_segment.start_time > (sysdate - 30 units day)
+   {% endif %}"
   }
   jdbc {
     type => "mmatches_userIds"
@@ -85,8 +90,12 @@ WHERE
     jdbc_connection_string => "{{DB_CONNECTION}}"
     jdbc_user => "{{DB_USER}}"
     jdbc_password => "{{DB_PASSWORD}}"
+    
+    {% if INITIAL_LOAD == 'NO' %}
     schedule => "*/5 * * * *"
     clean_run=>true
+    {% endif %}
+    
     statement => "SELECT DISTINCT
    contest.contest_id id,
    round_registration.coder_id userid,
@@ -112,7 +121,10 @@ FROM
       ON user_table.user_id = round_registration.coder_id
 WHERE
    round.round_type_id = 13
-   AND registration_segment.start_time > (sysdate - 30 units day)"
+   {% if INITIAL_LOAD == 'NO' %}
+   	AND registration_segment.start_time > (sysdate - 30 units day)
+   {% endif %}
+   "
   }
 }
 
@@ -134,7 +146,7 @@ filter {
       rename => { "problemid" => "problemId" }
       rename => { "contestid" => "contestId" }
       rename => { "componentid" => "componentId" }
-      remove_field => ["@version", "@timestamp", "_id"]
+      remove_field => ["@version", "@timestamp"]
     }
   }
 
