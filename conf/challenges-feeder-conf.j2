@@ -165,7 +165,6 @@ input {
          gce.group_id groupid
   FROM project p
   INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
-  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id
   LEFT JOIN contest_eligibility ce ON ce.contest_id = p.project_id
   LEFT JOIN group_contest_eligibility gce ON gce.contest_eligibility_id = ce.contest_eligibility_id
   WHERE pcl.project_category_id NOT IN (27,37)  
@@ -245,7 +244,6 @@ input {
           AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview
   FROM project p
   INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
-  INNER JOIN project_phase pp1 ON pp1.project_id = p.project_id 
   LEFT JOIN RESOURCE r ON p.project_id = r.project_id
   LEFT JOIN USER u ON u.user_id = r.user_id
   WHERE pcl.project_category_id NOT IN (27,37)
