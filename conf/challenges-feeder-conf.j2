@@ -158,7 +158,7 @@ input {
     {% if INITIAL_LOAD == 'NO' %}
     schedule => "* * * * *"
     clean_run=>true
-    {% endif %}"
+    {% endif %}
 
     statement => "SELECT distinct
          p.project_id id,
