@@ -242,11 +242,9 @@ input {
           AND rs.project_id = u.project_id
           AND u.project_id = p.project_id
           AND rs.resource_id = u.resource_id) AS q) AS hasusersubmittedforreview
-  FROM project p
-  INNER JOIN project_category_lu pcl ON pcl.project_category_id = p.project_category_id
-  LEFT JOIN RESOURCE r ON p.project_id = r.project_id
-  LEFT JOIN USER u ON u.user_id = r.user_id
-  WHERE pcl.project_category_id NOT IN (27,37)
+  FROM RESOURCE r
+  INNER JOIN project p ON p.project_id = r.project_id
+  WHERE p.project_category_id NOT IN (27,37)
     {% if INITIAL_LOAD == 'NO' %}
       AND p.project_id IN 
                (
@@ -286,7 +284,7 @@ input {
                      prize 
                   WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
                  )
-      {% endif %}"
+      {% endif %} order by p.project_id"
   }
 
 }
