@@ -80,7 +80,7 @@ FROM
 WHERE
    round.round_type_id = 13
    {% if INITIAL_LOAD == 'NO' %}
-   	AND registration_segment.start_time > (sysdate - 30 units day)
+   	AND registration_segment.start_time > (sysdate - 180 units day)
    {% endif %}"
   }
   jdbc {
@@ -122,7 +122,7 @@ FROM
 WHERE
    round.round_type_id = 13
    {% if INITIAL_LOAD == 'NO' %}
-   	AND registration_segment.start_time > (sysdate - 30 units day)
+   	AND registration_segment.start_time > (sysdate - 180 units day)
    {% endif %}
    "
   }
