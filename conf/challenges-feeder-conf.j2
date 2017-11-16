@@ -287,6 +287,138 @@ input {
       {% endif %} order by p.project_id"
   }
 
+  jdbc {
+    type => "prizes"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+            prize.prize_id prizeId,
+            prize.place place,
+            prize.prize_amount amount,
+            prize.project_id id
+        FROM
+            prize AS prize
+        INNER JOIN project AS project  ON prize.project_id = project.project_id
+        WHERE prize.prize_type_id = 15
+    {% if INITIAL_LOAD == 'NO' %}
+      AND project.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by prize.project_id"
+  }
+
+  jdbc {
+    type => "checkpointPrizes"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+              prize.prize_id prizeId,
+              prize.place place,
+              prize.prize_amount amount,
+              prize.number_of_submissions numberOfSubmissions, 
+              prize.project_id id
+           FROM
+               prize AS prize
+           INNER JOIN project AS project ON prize.project_id = project.project_id
+           WHERE prize.prize_type_id = 14
+
+    {% if INITIAL_LOAD == 'NO' %}
+      AND project.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by prize.project_id"
+  }
+
+ 
+
 }
 
 filter {
@@ -341,6 +473,8 @@ filter {
       drop{ }
     }
   }
+  
+
   if [type] == "userIds" {
     aggregate {
       task_id => "userIds_%{id}"
@@ -367,6 +501,57 @@ filter {
     }
   }
 }
+
+filter {
+  if [type] == "prizes" {
+    aggregate {
+      task_id => "prizes_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['prizes'] ||= []
+            map['prizes'] << { 'prizeId' => event.get('prizeid'), 
+                               'place' => event.get('place'),
+                               'amount' => event.get('amount')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "checkpointPrizes" {
+    aggregate {
+      task_id => "checkpointPrizes_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['checkpointPrizes'] ||= []
+            map['checkpointPrizes'] << { 'prizeId' => event.get('prizeid'), 
+                                         'place' => event.get('place'),
+                                         'amount' => event.get('amount'),
+                                         'numberOfSubmissions' => event.get('numberofsubmissions')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+
 
 output {
   {% if ES_ENV == 'AWS' %}
