@@ -18,6 +18,8 @@ input {
          p.modify_date updatedat,
          p.project_id _id,
          p.project_id id,
+         CASE WHEN rel_flag.value = 'true' THEN rel_cost.value::decimal ELSE NULL END AS reliabilityBonus,
+         CASE WHEN dr_elligible.value = 'On' THEN dr_points.value::decimal ELSE NULL END AS drPoints,
          pn.value NAME,
          CASE
              WHEN (ptl.description = 'Application') THEN 'DEVELOP'
@@ -104,6 +106,10 @@ input {
   LEFT JOIN CORPORATE_OLTP:tc_direct_project AS tcdirect ON p.tc_direct_project_id = tcdirect.project_id
   LEFT JOIN project_info pvs ON pvs.project_id = p.project_id
   AND pvs.project_info_type_id = 53
+  LEFT JOIN project_info rel_flag ON rel_flag.project_id = p.project_id AND rel_flag.project_info_type_id = 45
+  LEFT JOIN project_info rel_cost ON rel_cost.project_id = p.project_id AND rel_cost.project_info_type_id = 38
+  LEFT JOIN project_info dr_points ON dr_points.project_id = p.project_id AND dr_points.project_info_type_id = 30
+  LEFT JOIN project_info dr_elligible ON dr_elligible.project_id = p.project_id AND dr_elligible.project_info_type_id = 26
   WHERE pcl.project_category_id NOT IN (27,37)
     {% if INITIAL_LOAD == 'NO' %}
               AND p.project_id IN 
@@ -417,16 +423,84 @@ input {
       {% endif %} order by prize.project_id"
   }
 
- 
+
+  jdbc {
+    type => "topcoderEvents"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                 x.project_id id,
+                 e.event_id eventId,
+                 e.event_short_desc eventName
+               FROM
+                 common_oltp:event e,
+                 contest_project_xref  x,
+                 contest  c
+               WHERE e.event_id = c.event_id and c.contest_id = x.contest_id
+
+    {% if INITIAL_LOAD == 'NO' %}
+      AND x.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by x.project_id"
+  }
 
 }
 
 filter {
   if [type] == "challenges"{
     mutate {
+      convert => { "reliabilitybonus" => "float"}
+      convert => { "drpoints" => "float"}
       rename => { "isprivate" => "isPrivate" }
       rename => { "directprojectid" => "directProjectId" }
       rename => { "directprojectname" => "directProjectName" }
+      rename => { "reliabilitybonus" => "reliabilityBonus" }
+      rename => { "drpoints" => "drPoints" }
       rename => { "reviewtype" => "reviewType" }
       rename => { "subtrack" => "subTrack" }
       rename => { "forumid" => "forumId" }
@@ -538,6 +612,29 @@ filter {
                                          'place' => event.get('place'),
                                          'amount' => event.get('amount'),
                                          'numberOfSubmissions' => event.get('numberofsubmissions')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "topcoderEvents" {
+    aggregate {
+      task_id => "topcoderEvents_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['events'] ||= []
+            map['events'] << { 'eventId' => event.get('eventid'), 
+                               'eventName' => event.get('eventname')}
             event.cancel()                   
           "
       push_previous_map_as_event => true
