@@ -15,6 +15,9 @@ ADD jar/jdbc /opt/logstash/vendor/
 COPY jar/jdbc/informix.jdbc-3.0.0.JC3.jar /
 COPY jar/jdbc/ifxjdbc.jar /
 
+# Set the timezone
+RUN ln -snf /usr/share/zoneinfo/$ZONE_INFO /etc/localtime && echo $TZ > /etc/timezone
+
 COPY conf /conf
 
 ADD run.sh /run.sh

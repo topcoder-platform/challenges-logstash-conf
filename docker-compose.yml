@@ -24,6 +24,8 @@ services:
       - AWS_REGION
       - AWS_ACCESS_KEY
       - AWS_ACCESS_SECRET
+      - TZ
+      - ZONE_INFO
   challenges-feeder:
     image: appiriodevops/challenges-logstash-conf:dev
     links:
@@ -42,6 +44,8 @@ services:
       - AWS_REGION
       - AWS_ACCESS_KEY
       - AWS_ACCESS_SECRET
+      - TZ
+      - ZONE_INFO
   mmatches-feeder-initial-load:
     image: appiriodevops/challenges-logstash-conf:dev
     links:
