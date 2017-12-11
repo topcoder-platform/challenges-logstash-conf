@@ -567,6 +567,80 @@ input {
       {% endif %} ORDER BY u.project_id ASC, s.submission_type_id DESC, s.placement ASC"
   }
 
+  jdbc {
+    type => "phases"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                     project_phase.project_id id,
+                     project_phase.project_phase_id phaseId,
+                     phase_type_lu.description phaseType,
+                     phase_status_lu.description phaseStatus,
+                     project_phase.create_user createdBy,
+                     project_phase.create_date createdAt,
+                     project_phase.modify_user updatedBy,
+                     project_phase.modify_date updatedAt,
+                     project_phase.fixed_start_time fixedStartTime,
+                     project_phase.scheduled_start_time scheduledStartTime,
+                     project_phase.actual_start_time actualStartTime,
+                     project_phase.actual_end_time actualEndTime,
+                     project_phase.scheduled_end_time scheduledEndTime,
+                     project_phase.duration duration
+                 FROM project_phase
+                    INNER JOIN phase_type_lu ON phase_type_lu.phase_type_id = project_phase.phase_type_id
+                    INNER JOIN phase_status_lu ON phase_status_lu.phase_status_id = project_phase.phase_status_id
+                 WHERE 1 = 1   
+    {% if INITIAL_LOAD == 'NO' %}
+      AND project_phase.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by project_phase.project_id"
+  }
+
 }
 
 filter {
@@ -740,6 +814,40 @@ filter {
                                 'placement' => event.get('placement'),
                                 'type' => event.get('submissiontype'),
                                 'photoURL' => event.get('photourl')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "phases" {
+    aggregate {
+      task_id => "phases_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['phases'] ||= []
+            map['phases'] << { 'phaseId' => event.get('phaseid'), 
+                               'phaseType' => event.get('phasetype'),
+                               'phaseStatus' => event.get('phasestatus'),
+                               'createdBy' => event.get('createdby'), 
+                               'createdAt' => event.get('createdat'),
+                               'updatedBy' => event.get('updatedby'), 
+                               'updatedAt' => event.get('updatedat'),
+                               'fixedStartTime' => event.get('fixedstarttime'),
+                               'scheduledStartTime' => event.get('scheduledstarttime'), 
+                               'actualStartTime' => event.get('actualstarttime'),
+                               'actualEndTime' => event.get('actualendtime'),
+                               'scheduledEndTime' => event.get('scheduledendtime'),
+                               'duration' => event.get('duration')}
             event.cancel()                   
           "
       push_previous_map_as_event => true
