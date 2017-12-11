@@ -13,13 +13,13 @@ if [ ! -z "$CIRCLE_BRANCH" ]; then
   UNIQUEID=$CIRCLE_BRANCH-$CIRCLE_SHA1
 fi
 
-# Login to docker hub
-#docker login -u $DOCKER_USER -p $DOCKER_PASS
-docker login -u $DOCKER_USER -p $DOCKER_PASS
 
 # Build the docker image
 echo Build the docker image $DOCKER_REPOSITORY:$UNIQUEID
 docker build -t $DOCKER_REPOSITORY:$UNIQUEID .
+
+# Login to docker hub
+docker login -u $DOCKER_USER -p $DOCKER_PASS
 
 # Deploy image to Docker Hub
 echo Pushing docker image $DOCKER_REPOSITORY:$UNIQUEID
