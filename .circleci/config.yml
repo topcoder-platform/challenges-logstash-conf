@@ -14,7 +14,7 @@ jobs:
           if [ ! -z "$CIRCLE_BRANCH" ]; then
             UNIQUEID=$CIRCLE_BRANCH-$CIRCLE_SHA1
           fi
- 	
+ 
           # Build the docker image
           echo Build the docker image $DOCKER_REPOSITORY:$UNIQUEID
           docker build -t $DOCKER_REPOSITORY:$UNIQUEID .
