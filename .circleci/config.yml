@@ -14,7 +14,8 @@ jobs:
           if [ ! -z "$CIRCLE_BRANCH" ]; then
             UNIQUEID=$CIRCLE_BRANCH-$CIRCLE_SHA1
           fi
-          export UNIQUEID 
+
+          echo 'export UNIQUEID=$UNIQUEID' >> $BASH_ENV
       - run: | 
           # Build the docker image
           echo Build the docker image $DOCKER_REPOSITORY:$UNIQUEID
