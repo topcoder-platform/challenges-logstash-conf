@@ -14,14 +14,14 @@ jobs:
           if [ ! -z "$CIRCLE_BRANCH" ]; then
             UNIQUEID=$CIRCLE_BRANCH-$CIRCLE_SHA1
           fi
- 
+       - run: | 
           # Build the docker image
           echo Build the docker image $DOCKER_REPOSITORY:$UNIQUEID
           docker build -t $DOCKER_REPOSITORY:$UNIQUEID .
-
+       - run: |
           # Login to docker hub
           docker login -u $DOCKER_USER -p $DOCKER_PASS
-
+       - run: |
           # Deploy image to Docker Hub
           echo Pushing docker image $DOCKER_REPOSITORY:$UNIQUEID
           docker push $DOCKER_REPOSITORY:$UNIQUEID
