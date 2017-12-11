@@ -1,0 +1,16 @@
+version: 2
+jobs:
+  dockerhub-push:
+    machine: true
+    steps:
+      - run: |
+          sh .circleci/dockerhub_push.sh appiriodevops/challenges-logstash-conf
+
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - dockerhub-push:
+          filters:
+            tags:
+              only: /.*/
