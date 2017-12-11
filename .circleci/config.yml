@@ -2,11 +2,11 @@ version: 2
 jobs:
   dockerhub-push:
     machine: true
+    environment:
+      - DOCKER_REPOSITORY: "appiriodevops/challenges-logstash-conf"
     steps:
       - checkout
       - run: |
-          DOCKER_REPOSITORY=appiriodevops/challenges-logstash-conf
-
           if [ ! -z "$CIRCLE_TAG" ]; then
             UNIQUEID=$CIRCLE_TAG
           fi
@@ -14,6 +14,7 @@ jobs:
           if [ ! -z "$CIRCLE_BRANCH" ]; then
             UNIQUEID=$CIRCLE_BRANCH-$CIRCLE_SHA1
           fi
+          export UNIQUEID 
       - run: | 
           # Build the docker image
           echo Build the docker image $DOCKER_REPOSITORY:$UNIQUEID
