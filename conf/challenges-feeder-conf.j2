@@ -641,6 +641,84 @@ input {
       {% endif %} order by project_phase.project_id"
   }
 
+  jdbc {
+    type => "submissions"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                       u.project_id id,
+                       s.submission_id submissionId,
+                       s.create_date submittedAt,
+                       ssl.name status,
+                       s.placement placement,
+                       stl.name submissionType,
+                       s.create_user submitterId,
+                       usr.handle submitter,
+                       s.screening_score screeningScore,
+                       s.initial_score initialScore,
+                       s.final_score finalScore
+                   FROM
+                       submission s, upload u, submission_status_lu ssl, submission_type_lu stl, user usr
+                   WHERE
+                        u.upload_id = s.upload_id
+                        AND s.create_user = usr.user_id
+                        AND s.submission_status_id = ssl.submission_status_id
+                        AND s.submission_type_id = stl.submission_type_id
+                        AND s.submission_status_id <> 5
+                        AND s.submission_type_id in (1,3)
+                        AND u.upload_type_id = 1
+                        AND u.upload_status_id = 1 
+    {% if INITIAL_LOAD == 'NO' %}
+      AND u.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by u.project_id"
+  }
+
 }
 
 filter {
@@ -861,6 +939,41 @@ filter {
   }
 }
 
+filter {
+  if [type] == "submissions" {
+    mutate {
+      convert => { "submitterid" => "integer"}
+    }
+
+    aggregate {
+      task_id => "submissions_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['submissions'] ||= []
+            map['submissions'] << { 'submissionId' => event.get('submissionid'), 
+                                    'submittedAt' => event.get('submittedat'),
+                                    'status' => event.get('status'),
+                                    'placement' => event.get('placement'), 
+                                    'submissionType' => event.get('submissiontype'),
+                                    'submitterId' => event.get('submitterid'), 
+                                    'submitter' => event.get('submitter'),
+                                    'screeningScore' => event.get('screeningscore'),
+                                    'initialScore' => event.get('initialscore'),
+                                    'finalScore' => event.get('finalscore')
+                                    }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
 
 
 output {
