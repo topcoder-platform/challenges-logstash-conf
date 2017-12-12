@@ -791,6 +791,68 @@ input {
       {% endif %} order by r.project_id"
   }
 
+  jdbc {
+    type => "properties"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                     pi.project_id id,
+                     pi.project_info_type_id propertyId,
+                     pit.name name, 
+                     pi.value value
+                  FROM project_info pi
+                  INNER JOIN project_info_type_lu pit ON pit.project_info_type_id = pi.project_info_type_id  
+    {% if INITIAL_LOAD == 'NO' %}
+      AND pi.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by pi.project_id"
+  }
+
 }
 
 filter {
@@ -1070,6 +1132,31 @@ filter {
                                   'rating' => event.get('rating'),
                                   'reliability' => event.get('reliability')
                                 }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "properties" {
+    aggregate {
+      task_id => "properties_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['properties'] ||= []
+            map['properties'] << { 'propertyId' => event.get('propertyid'), 
+                                   'name' => event.get('name'),
+                                   'value' => event.get('value')
+                                  }
             event.cancel()                   
           "
       push_previous_map_as_event => true
