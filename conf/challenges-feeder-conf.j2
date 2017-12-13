@@ -22,6 +22,15 @@ input {
          CASE WHEN dr_elligible.value = 'On' THEN dr_points.value::decimal ELSE NULL END AS drPoints,
          env.value environment,
          code_repo.value coderepo,
+         pspec.detailed_requirements_text softwareDetailRequirements,
+         pspec.final_submission_guidelines_text softwareFinalSubmissionGuidelines,
+         pspec.private_description_text copilotDetailRequirements,
+         pss.contest_description_text studioDetailRequirements,
+         pss.contest_introduction introduction,
+         pss.round_one_introduction round1Introduction,
+         pss.round_two_introduction round2Introduction,
+         pmm_spec.match_details marathonMatchDetailRequirements,
+         pmm_spec.match_rules marathonMatchRules,
          pn.value NAME,
          CASE
              WHEN (ptl.description = 'Application') THEN 'DEVELOP'
@@ -114,7 +123,10 @@ input {
   LEFT JOIN project_info dr_elligible ON dr_elligible.project_id = p.project_id AND dr_elligible.project_info_type_id = 26
   LEFT JOIN project_info env ON env.project_id = p.project_id AND env.project_info_type_id = 84
   LEFT JOIN project_info code_repo ON code_repo.project_id = p.project_id AND code_repo.project_info_type_id = 85
-  WHERE pcl.project_category_id NOT IN (27,37)
+  LEFT JOIN project_spec pspec ON pspec.project_id = p.project_id
+  LEFT JOIN project_studio_specification pss ON pss.project_studio_spec_id = p.project_studio_spec_id
+  LEFT JOIN project_mm_specification pmm_spec ON pmm_spec.project_mm_spec_id = p.project_mm_spec_id
+  WHERE pcl.project_category_id NOT IN (27)
     {% if INITIAL_LOAD == 'NO' %}
               AND p.project_id IN 
                (
@@ -1088,6 +1100,14 @@ filter {
       rename => { "totalprize" => "totalPrize" }
       rename => { "submissionviewable" => "submissionViewable" }
       rename => { "istask" => "isTask" }
+      rename => { "softwaredetailrequirements" => "softwareDetailRequirements" }
+      rename => { "softwarefinalsubmissionguidelines" => "softwareFinalSubmissionGuidelines" }
+      rename => { "copilotdetailrequirements" => "copilotDetailRequirements" }
+      rename => { "studiodetailrequirements" => "studioDetailRequirements" }
+      rename => { "round1introduction" => "round1Introduction" }
+      rename => { "round2introduction" => "round2Introduction" }
+      rename => { "marathonmatchdetailrequirements" => "marathonMatchDetailRequirements" }
+      rename => { "marathonmatchrules" => "marathonMatchRules" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
   }
