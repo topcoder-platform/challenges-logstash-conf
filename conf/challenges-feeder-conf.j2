@@ -458,11 +458,11 @@ input {
                  e.event_id eventId,
                  e.event_short_desc eventName
                FROM
-                 common_oltp:event e,
-                 contest_project_xref  x,
-                 contest  c
-               WHERE e.event_id = c.event_id and c.contest_id = x.contest_id
-
+                 common_oltp:event e
+               INNER JOIN contest c ON e.event_id = c.event_id
+               INNER JOIN contest_project_xref x ON c.contest_id = x.contest_id
+               INNER JOIN project p ON p.project_id = x.project_id
+               WHERE  1 = 1
     {% if INITIAL_LOAD == 'NO' %}
       AND x.project_id IN 
                (
@@ -530,6 +530,7 @@ input {
                          INNER JOIN informixoltp:path p ON p.path_id = i.path_id 
                      WHERE mi.coder_id = ri.value AND mi.display_flag = 1 AND i.image_type_id = 1) photoURL
               FROM upload u
+                   INNER JOIN project p ON p.project_id = u.project_id
                    INNER JOIN submission s ON s.upload_id = u.upload_id
                    INNER JOIN prize p ON p.prize_id = s.prize_id
                    INNER JOIN resource_info ri ON ri.resource_id = u.resource_id
@@ -608,6 +609,7 @@ input {
                      project_phase.scheduled_end_time scheduledEndTime,
                      project_phase.duration duration
                  FROM project_phase
+                    INNER JOIN project p ON p.project_id = project_phase.project_id
                     INNER JOIN phase_type_lu ON phase_type_lu.phase_type_id = project_phase.phase_type_id
                     INNER JOIN phase_status_lu ON phase_status_lu.phase_status_id = project_phase.phase_status_id
                  WHERE 1 = 1   
@@ -679,16 +681,14 @@ input {
                        s.initial_score initialScore,
                        s.final_score finalScore
                    FROM
-                       submission s, upload u, submission_status_lu ssl, submission_type_lu stl, user usr
-                   WHERE
-                        u.upload_id = s.upload_id
-                        AND s.create_user = usr.user_id
-                        AND s.submission_status_id = ssl.submission_status_id
-                        AND s.submission_type_id = stl.submission_type_id
-                        AND s.submission_status_id <> 5
-                        AND s.submission_type_id in (1,3)
-                        AND u.upload_type_id = 1
-                        AND u.upload_status_id = 1 
+                       submission s 
+                       INNER JOIN upload u ON u.upload_id = s.upload_id AND u.upload_type_id = 1 AND u.upload_status_id = 1 
+                       INNER JOIN project p ON p.project_id = u.project_id
+                       INNER JOIN submission_status_lu ssl ON s.submission_status_id = ssl.submission_status_id AND s.submission_status_id <> 5
+                       INNER JOIN submission_type_lu stl ON s.submission_type_id = stl.submission_type_id AND s.submission_type_id in (1,3)
+                       INNER JOIN user usr ON s.create_user = usr.user_id
+                   WHERE 1 = 1
+                      
     {% if INITIAL_LOAD == 'NO' %}
       AND u.project_id IN 
                (
@@ -755,6 +755,7 @@ input {
                       decode(ri_rating.value, 'N/A', '0', ri_rating.value)::int AS rating,
                       ri_reliability.value::int AS reliability
                   FROM resource r
+                    INNER JOIN project p ON p.project_id = r.project_id
                     INNER JOIN resource_role_lu rrl ON r.resource_role_id = rrl.resource_role_id
                     INNER JOIN resource_info ri_handle ON ri_handle.resource_id = r.resource_id and ri_handle.resource_info_type_id = 2
                     INNER JOIN resource_info ri_reg_date ON ri_reg_date.resource_id = r.resource_id and ri_reg_date.resource_info_type_id = 6
@@ -822,6 +823,7 @@ input {
                      pit.name name, 
                      pi.value value
                   FROM project_info pi
+                  INNER JOIN project p ON p.project_id = pi.project_id
                   INNER JOIN project_info_type_lu pit ON pit.project_info_type_id = pi.project_info_type_id  
     {% if INITIAL_LOAD == 'NO' %}
       AND pi.project_id IN 
@@ -893,10 +895,11 @@ input {
                      INNER JOIN upload u ON s.upload_id = u.upload_id
                      INNER JOIN resource rs_submitter ON u.resource_id = rs_submitter.resource_id AND rs_submitter.resource_role_id = 1
                      INNER JOIN project_phase pp ON pp.project_phase_id = r.project_phase_id
+                     INNER JOIN project p ON p.project_id = pp.project_id
                      INNER JOIN user submitter ON rs_submitter.user_id = submitter.user_id
                      INNER JOIN resource rs_reviewer ON r.resource_id = rs_reviewer.resource_id
                      INNER JOIN user reviewer ON rs_reviewer.user_id = reviewer.user_id
-                   WHERE    r.committed = 1  
+                   WHERE  r.committed = 1  
     {% if INITIAL_LOAD == 'NO' %}
       AND pp.project_id IN 
                (
@@ -961,6 +964,7 @@ input {
                     dtx.docusign_template_id templateId,
                     rrl.name role
                   FROM project_role_terms_of_use_xref pr
+                    INNER JOIN project p ON p.project_id = pr.project_id
                     INNER JOIN terms_of_use tou ON pr.terms_of_use_id = tou.terms_of_use_id
                     INNER JOIN common_oltp:terms_of_use_agreeability_type_lu touat ON touat.terms_of_use_agreeability_type_id = tou.terms_of_use_agreeability_type_id
                     LEFT JOIN common_oltp:terms_of_use_docusign_template_xref dtx ON dtx.terms_of_use_id = pr.terms_of_use_id
@@ -1026,6 +1030,7 @@ input {
                       x.file_type_id fileTypeId,
                       l.description 
                   FROM project_file_type_xref x
+                   INNER JOIN project p ON p.project_id = x.project_id
                    INNER JOIN file_type_lu l ON l.file_type_id = x.file_type_id  
     {% if INITIAL_LOAD == 'NO' %}
       AND x.project_id IN 
