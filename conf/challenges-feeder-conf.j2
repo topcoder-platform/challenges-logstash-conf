@@ -532,11 +532,11 @@ input {
               FROM upload u
                    INNER JOIN project p ON p.project_id = u.project_id
                    INNER JOIN submission s ON s.upload_id = u.upload_id
-                   INNER JOIN prize p ON p.prize_id = s.prize_id
+                   INNER JOIN prize ON prize.prize_id = s.prize_id
                    INNER JOIN resource_info ri ON ri.resource_id = u.resource_id
                    INNER JOIN user ON user.user_id = ri.value::DECIMAL(10,0)
               WHERE resource_info_type_id = 1
-                   AND ((s.submission_type_id = 1 AND p.prize_type_id = 15) OR (s.submission_type_id = 3 AND p.prize_type_id = 14))
+                   AND ((s.submission_type_id = 1 AND prize.prize_type_id = 15) OR (s.submission_type_id = 3 AND prize.prize_type_id = 14))
 
       {% if INITIAL_LOAD == 'NO' %}
       AND u.project_id IN 
