@@ -18,6 +18,19 @@ input {
          p.modify_date updatedat,
          p.project_id _id,
          p.project_id id,
+         CASE WHEN rel_flag.value = 'true' THEN rel_cost.value::decimal ELSE NULL END AS reliabilityBonus,
+         CASE WHEN dr_elligible.value = 'On' THEN dr_points.value::decimal ELSE NULL END AS drPoints,
+         env.value environment,
+         code_repo.value coderepo,
+         pspec.detailed_requirements_text softwareDetailRequirements,
+         pspec.final_submission_guidelines_text softwareFinalSubmissionGuidelines,
+         pspec.private_description_text copilotDetailRequirements,
+         pss.contest_description_text studioDetailRequirements,
+         pss.contest_introduction introduction,
+         pss.round_one_introduction round1Introduction,
+         pss.round_two_introduction round2Introduction,
+         pmm_spec.match_details marathonMatchDetailRequirements,
+         pmm_spec.match_rules marathonMatchRules,
          pn.value NAME,
          CASE
              WHEN (ptl.description = 'Application') THEN 'DEVELOP'
@@ -104,7 +117,16 @@ input {
   LEFT JOIN CORPORATE_OLTP:tc_direct_project AS tcdirect ON p.tc_direct_project_id = tcdirect.project_id
   LEFT JOIN project_info pvs ON pvs.project_id = p.project_id
   AND pvs.project_info_type_id = 53
-  WHERE pcl.project_category_id NOT IN (27,37)
+  LEFT JOIN project_info rel_flag ON rel_flag.project_id = p.project_id AND rel_flag.project_info_type_id = 45
+  LEFT JOIN project_info rel_cost ON rel_cost.project_id = p.project_id AND rel_cost.project_info_type_id = 38
+  LEFT JOIN project_info dr_points ON dr_points.project_id = p.project_id AND dr_points.project_info_type_id = 30
+  LEFT JOIN project_info dr_elligible ON dr_elligible.project_id = p.project_id AND dr_elligible.project_info_type_id = 26
+  LEFT JOIN project_info env ON env.project_id = p.project_id AND env.project_info_type_id = 84
+  LEFT JOIN project_info code_repo ON code_repo.project_id = p.project_id AND code_repo.project_info_type_id = 85
+  LEFT JOIN project_spec pspec ON pspec.project_id = p.project_id
+  LEFT JOIN project_studio_specification pss ON pss.project_studio_spec_id = p.project_studio_spec_id
+  LEFT JOIN project_mm_specification pmm_spec ON pmm_spec.project_mm_spec_id = p.project_mm_spec_id
+  WHERE pcl.project_category_id NOT IN (27)
     {% if INITIAL_LOAD == 'NO' %}
               AND p.project_id IN 
                (
@@ -287,14 +309,784 @@ input {
       {% endif %} order by p.project_id"
   }
 
+  jdbc {
+    type => "prizes"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+            prize.prize_id prizeId,
+            prize.place place,
+            prize.prize_amount amount,
+            prize.project_id id
+        FROM
+            prize AS prize
+        INNER JOIN project AS project  ON prize.project_id = project.project_id
+        WHERE prize.prize_type_id = 15
+    {% if INITIAL_LOAD == 'NO' %}
+      AND project.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by prize.project_id"
+  }
+
+  jdbc {
+    type => "checkpointPrizes"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+              prize.prize_id prizeId,
+              prize.place place,
+              prize.prize_amount amount,
+              prize.number_of_submissions numberOfSubmissions, 
+              prize.project_id id
+           FROM
+               prize AS prize
+           INNER JOIN project AS project ON prize.project_id = project.project_id
+           WHERE prize.prize_type_id = 14
+
+    {% if INITIAL_LOAD == 'NO' %}
+      AND project.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by prize.project_id"
+  }
+
+
+  jdbc {
+    type => "topcoderEvents"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                 x.project_id id,
+                 e.event_id eventId,
+                 e.event_short_desc eventName
+               FROM
+                 common_oltp:event e
+               INNER JOIN contest c ON e.event_id = c.event_id
+               INNER JOIN contest_project_xref x ON c.contest_id = x.contest_id
+               INNER JOIN project p ON p.project_id = x.project_id
+               WHERE  1 = 1
+    {% if INITIAL_LOAD == 'NO' %}
+      AND x.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by x.project_id"
+  }
+
+  jdbc {
+    type => "winners"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT 
+               u.project_id id,
+               ri.value userId,
+               user.handle handle,
+               s.placement placement,
+               CASE WHEN s.submission_type_id = 1 THEN CAST('final' AS VARCHAR(10)) ELSE CAST('checkpoint' AS VARCHAR(10)) END submissionType,
+              (SELECT p.path || i.file_name 
+                     FROM informixoltp:coder_image_xref mi 
+                         INNER JOIN informixoltp:image i ON mi.image_id = i.image_id 
+                         INNER JOIN informixoltp:path p ON p.path_id = i.path_id 
+                     WHERE mi.coder_id = ri.value AND mi.display_flag = 1 AND i.image_type_id = 1) photoURL
+              FROM upload u
+                   INNER JOIN project p ON p.project_id = u.project_id
+                   INNER JOIN submission s ON s.upload_id = u.upload_id
+                   INNER JOIN prize ON prize.prize_id = s.prize_id
+                   INNER JOIN resource_info ri ON ri.resource_id = u.resource_id
+                   INNER JOIN user ON user.user_id = ri.value::DECIMAL(10,0)
+              WHERE resource_info_type_id = 1
+                   AND ((s.submission_type_id = 1 AND prize.prize_type_id = 15) OR (s.submission_type_id = 3 AND prize.prize_type_id = 14))
+
+      {% if INITIAL_LOAD == 'NO' %}
+      AND u.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} ORDER BY u.project_id ASC, s.submission_type_id DESC, s.placement ASC"
+  }
+
+  jdbc {
+    type => "phases"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                     project_phase.project_id id,
+                     project_phase.project_phase_id phaseId,
+                     phase_type_lu.description phaseType,
+                     phase_status_lu.description phaseStatus,
+                     project_phase.create_user createdBy,
+                     project_phase.create_date createdAt,
+                     project_phase.modify_user updatedBy,
+                     project_phase.modify_date updatedAt,
+                     project_phase.fixed_start_time fixedStartTime,
+                     project_phase.scheduled_start_time scheduledStartTime,
+                     project_phase.actual_start_time actualStartTime,
+                     project_phase.actual_end_time actualEndTime,
+                     project_phase.scheduled_end_time scheduledEndTime,
+                     project_phase.duration duration
+                 FROM project_phase
+                    INNER JOIN project p ON p.project_id = project_phase.project_id
+                    INNER JOIN phase_type_lu ON phase_type_lu.phase_type_id = project_phase.phase_type_id
+                    INNER JOIN phase_status_lu ON phase_status_lu.phase_status_id = project_phase.phase_status_id
+                 WHERE 1 = 1   
+    {% if INITIAL_LOAD == 'NO' %}
+      AND project_phase.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by project_phase.project_id"
+  }
+
+  jdbc {
+    type => "submissions"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                       u.project_id id,
+                       s.submission_id submissionId,
+                       s.create_date submittedAt,
+                       ssl.name status,
+                       s.placement placement,
+                       stl.name submissionType,
+                       s.create_user submitterId,
+                       usr.handle submitter,
+                       s.screening_score screeningScore,
+                       s.initial_score initialScore,
+                       s.final_score finalScore
+                   FROM
+                       submission s 
+                       INNER JOIN upload u ON u.upload_id = s.upload_id AND u.upload_type_id = 1 AND u.upload_status_id = 1 
+                       INNER JOIN project p ON p.project_id = u.project_id
+                       INNER JOIN submission_status_lu ssl ON s.submission_status_id = ssl.submission_status_id AND s.submission_status_id <> 5
+                       INNER JOIN submission_type_lu stl ON s.submission_type_id = stl.submission_type_id AND s.submission_type_id in (1,3)
+                       INNER JOIN user usr ON s.create_user = usr.user_id
+                   WHERE 1 = 1
+                      
+    {% if INITIAL_LOAD == 'NO' %}
+      AND u.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by u.project_id"
+  }
+  
+  jdbc {
+    type => "resources"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                      r.project_id id,
+                      r.resource_id resourceId,
+                      r.user_id userId,
+                      rrl.name role,
+                      r.project_phase_id projectPhaseId,
+                      ri_handle.value handle,
+                      ri_reg_date.value registrationDate,
+                      decode(ri_rating.value, 'N/A', '0', ri_rating.value)::int AS rating,
+                      ri_reliability.value::int AS reliability
+                  FROM resource r
+                    INNER JOIN project p ON p.project_id = r.project_id
+                    INNER JOIN resource_role_lu rrl ON r.resource_role_id = rrl.resource_role_id
+                    INNER JOIN resource_info ri_handle ON ri_handle.resource_id = r.resource_id and ri_handle.resource_info_type_id = 2
+                    INNER JOIN resource_info ri_reg_date ON ri_reg_date.resource_id = r.resource_id and ri_reg_date.resource_info_type_id = 6
+                    LEFT  JOIN resource_info ri_rating ON ri_rating.resource_id = r.resource_id and ri_rating.resource_info_type_id = 4
+                    LEFT  JOIN resource_info ri_reliability ON ri_reliability.resource_id = r.resource_id and ri_reliability.resource_info_type_id = 5
+                  WHERE 1=1   
+    {% if INITIAL_LOAD == 'NO' %}
+      AND r.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by r.project_id"
+  }
+
+  jdbc {
+    type => "properties"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                     pi.project_id id,
+                     pi.project_info_type_id propertyId,
+                     pit.name name, 
+                     pi.value value
+                  FROM project_info pi
+                  INNER JOIN project p ON p.project_id = pi.project_id
+                  INNER JOIN project_info_type_lu pit ON pit.project_info_type_id = pi.project_info_type_id  
+    {% if INITIAL_LOAD == 'NO' %}
+      AND pi.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by pi.project_id"
+  }
+
+  jdbc {
+    type => "reviews"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT  
+                      pp.project_id id,
+                      r.review_id reviewId,
+                      r.submission_id submissionId,
+                      r.initial_score initialScore,
+                      r.score,
+                      submitter.user_id submitterId,
+                      submitter.handle submitterHandle,
+                      reviewer.user_id reviewerId,
+                      reviewer.handle  reviewerHandle
+                   FROM     review r
+                     INNER JOIN submission s ON r.submission_id = s.submission_id
+                     INNER JOIN upload u ON s.upload_id = u.upload_id
+                     INNER JOIN resource rs_submitter ON u.resource_id = rs_submitter.resource_id AND rs_submitter.resource_role_id = 1
+                     INNER JOIN project_phase pp ON pp.project_phase_id = r.project_phase_id
+                     INNER JOIN project p ON p.project_id = pp.project_id
+                     INNER JOIN user submitter ON rs_submitter.user_id = submitter.user_id
+                     INNER JOIN resource rs_reviewer ON r.resource_id = rs_reviewer.resource_id
+                     INNER JOIN user reviewer ON rs_reviewer.user_id = reviewer.user_id
+                   WHERE  r.committed = 1  
+    {% if INITIAL_LOAD == 'NO' %}
+      AND pp.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by pp.project_id"
+  }
+
+  jdbc {
+    type => "terms"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT
+                    pr.project_id id,
+                    tou.terms_of_use_id termsOfUseId,
+                    tou.title, 
+                    tou.url,
+                    touat.name agreeabilityType,
+                    dtx.docusign_template_id templateId,
+                    rrl.name role
+                  FROM project_role_terms_of_use_xref pr
+                    INNER JOIN project p ON p.project_id = pr.project_id
+                    INNER JOIN terms_of_use tou ON pr.terms_of_use_id = tou.terms_of_use_id
+                    INNER JOIN common_oltp:terms_of_use_agreeability_type_lu touat ON touat.terms_of_use_agreeability_type_id = tou.terms_of_use_agreeability_type_id
+                    LEFT JOIN common_oltp:terms_of_use_docusign_template_xref dtx ON dtx.terms_of_use_id = pr.terms_of_use_id
+                    LEFT JOIN resource_role_lu rrl on rrl.resource_role_id = pr.resource_role_id
+                  WHERE pr.resource_role_id IN (select resource_role_id from resource_role_lu)  
+    {% if INITIAL_LOAD == 'NO' %}
+      AND pr.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by pr.project_id"
+  }
+
+  jdbc {
+    type => "fileTypes"
+    jdbc_driver_library => "ifxjdbc.jar"
+    jdbc_driver_class => "com.informix.jdbc.IfxDriver"
+    jdbc_connection_string => "{{DB_CONNECTION}}"
+    jdbc_user => "{{DB_USER}}"
+    jdbc_password => "{{DB_PASSWORD}}"
+
+    {% if INITIAL_LOAD == 'NO' %}
+    schedule => "* * * * *"
+    clean_run=>true
+    {% endif %}
+
+    statement => "SELECT 
+                      x.project_id id,
+                      x.file_type_id fileTypeId,
+                      l.description 
+                  FROM project_file_type_xref x
+                   INNER JOIN project p ON p.project_id = x.project_id
+                   INNER JOIN file_type_lu l ON l.file_type_id = x.file_type_id  
+    {% if INITIAL_LOAD == 'NO' %}
+      AND x.project_id IN 
+               (
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     project 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     project_info 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                  (project_id) 
+                  FROM
+                     project_phase 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                    (project_id) 
+                  FROM
+                     upload 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     resource 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                  UNION
+                  SELECT DISTINCT
+                   (project_id) 
+                  FROM
+                     prize 
+                  WHERE modify_date < sysdate AND modify_date > (sysdate - 3 units minute)
+                 )
+      {% endif %} order by x.project_id"
+  }
+
 }
 
 filter {
   if [type] == "challenges"{
     mutate {
+      convert => { "reliabilitybonus" => "float"}
+      convert => { "drpoints" => "float"}
       rename => { "isprivate" => "isPrivate" }
       rename => { "directprojectid" => "directProjectId" }
       rename => { "directprojectname" => "directProjectName" }
+      rename => { "reliabilitybonus" => "reliabilityBonus" }
+      rename => { "drpoints" => "drPoints" }
+      rename => { "coderepo" => "codeRepo" }
       rename => { "reviewtype" => "reviewType" }
       rename => { "subtrack" => "subTrack" }
       rename => { "forumid" => "forumId" }
@@ -313,6 +1105,14 @@ filter {
       rename => { "totalprize" => "totalPrize" }
       rename => { "submissionviewable" => "submissionViewable" }
       rename => { "istask" => "isTask" }
+      rename => { "softwaredetailrequirements" => "softwareDetailRequirements" }
+      rename => { "softwarefinalsubmissionguidelines" => "softwareFinalSubmissionGuidelines" }
+      rename => { "copilotdetailrequirements" => "copilotDetailRequirements" }
+      rename => { "studiodetailrequirements" => "studioDetailRequirements" }
+      rename => { "round1introduction" => "round1Introduction" }
+      rename => { "round2introduction" => "round2Introduction" }
+      rename => { "marathonmatchdetailrequirements" => "marathonMatchDetailRequirements" }
+      rename => { "marathonmatchrules" => "marathonMatchRules" }
       remove_field => ["@version", "@timestamp", "_id"]
     }
   }
@@ -341,6 +1141,8 @@ filter {
       drop{ }
     }
   }
+  
+
   if [type] == "userIds" {
     aggregate {
       task_id => "userIds_%{id}"
@@ -367,6 +1169,318 @@ filter {
     }
   }
 }
+
+filter {
+  if [type] == "prizes" {
+    aggregate {
+      task_id => "prizes_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['prizes'] ||= []
+            map['prizes'] << { 'prizeId' => event.get('prizeid'), 
+                               'place' => event.get('place'),
+                               'amount' => event.get('amount')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "checkpointPrizes" {
+    aggregate {
+      task_id => "checkpointPrizes_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['checkpointPrizes'] ||= []
+            map['checkpointPrizes'] << { 'prizeId' => event.get('prizeid'), 
+                                         'place' => event.get('place'),
+                                         'amount' => event.get('amount'),
+                                         'numberOfSubmissions' => event.get('numberofsubmissions')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "topcoderEvents" {
+    aggregate {
+      task_id => "topcoderEvents_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['events'] ||= []
+            map['events'] << { 'eventId' => event.get('eventid'), 
+                               'eventName' => event.get('eventname')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "winners" {
+    aggregate {
+      task_id => "winners_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['winners'] ||= []
+            map['winners'] << { 'userId' => event.get('userid'), 
+                                'handle' => event.get('handle'),
+                                'placement' => event.get('placement'),
+                                'type' => event.get('submissiontype'),
+                                'photoURL' => event.get('photourl')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "phases" {
+    aggregate {
+      task_id => "phases_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['phases'] ||= []
+            map['phases'] << { 'phaseId' => event.get('phaseid'), 
+                               'phaseType' => event.get('phasetype'),
+                               'phaseStatus' => event.get('phasestatus'),
+                               'createdBy' => event.get('createdby'), 
+                               'createdAt' => event.get('createdat'),
+                               'updatedBy' => event.get('updatedby'), 
+                               'updatedAt' => event.get('updatedat'),
+                               'fixedStartTime' => event.get('fixedstarttime'),
+                               'scheduledStartTime' => event.get('scheduledstarttime'), 
+                               'actualStartTime' => event.get('actualstarttime'),
+                               'actualEndTime' => event.get('actualendtime'),
+                               'scheduledEndTime' => event.get('scheduledendtime'),
+                               'duration' => event.get('duration')}
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "submissions" {
+    mutate {
+      convert => { "submitterid" => "integer"}
+    }
+
+    aggregate {
+      task_id => "submissions_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['submissions'] ||= []
+            map['submissions'] << { 'submissionId' => event.get('submissionid'), 
+                                    'submittedAt' => event.get('submittedat'),
+                                    'status' => event.get('status'),
+                                    'placement' => event.get('placement'), 
+                                    'submissionType' => event.get('submissiontype'),
+                                    'submitterId' => event.get('submitterid'), 
+                                    'submitter' => event.get('submitter'),
+                                    'screeningScore' => event.get('screeningscore'),
+                                    'initialScore' => event.get('initialscore'),
+                                    'finalScore' => event.get('finalscore')
+                                    }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "resources" {
+    
+    mutate {
+      convert => { "rating" => "integer"}
+      convert => { "reliability" => "integer"}
+    }
+  
+    aggregate {
+      task_id => "resources_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['resources'] ||= []
+            map['resources'] << { 'resourceId' => event.get('resourceid'), 
+                                  'userId' => event.get('userid'),
+                                  'role' => event.get('role'),
+                                  'projectPhaseId' => event.get('projectphaseid'), 
+                                  'handle' => event.get('handle'),
+                                  'registrationDate' => event.get('registrationdate'), 
+                                  'rating' => event.get('rating'),
+                                  'reliability' => event.get('reliability')
+                                }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "properties" {
+    aggregate {
+      task_id => "properties_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['properties'] ||= []
+            map['properties'] << { 'propertyId' => event.get('propertyid'), 
+                                   'name' => event.get('name'),
+                                   'value' => event.get('value')
+                                  }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "reviews" {
+    aggregate {
+      task_id => "reviews_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['reviews'] ||= []
+            map['reviews'] << {    'reviewId' => event.get('reviewid'), 
+                                   'submissionId' => event.get('submissionid'),
+                                   'initialScore' => event.get('initialscore'),
+                                   'score' => event.get('score'), 
+                                   'submitterId' => event.get('submitterid'),
+                                   'submitterHandle' => event.get('submitterhandle'),
+                                   'reviewerId' => event.get('reviewerid'), 
+                                   'reviewerHandle' => event.get('reviewerhandle')
+                                  }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "terms" {
+    aggregate {
+      task_id => "terms_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['terms'] ||= []
+            map['terms'] << { 'termsOfUseId' => event.get('termsofuseid'), 
+                              'title' => event.get('title'),
+                              'url' => event.get('url'),
+                              'agreeabilityType' => event.get('agreeabilitytype'), 
+                              'templateId' => event.get('templateid'),
+                              'role' => event.get('role')
+                             }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
+filter {
+  if [type] == "fileTypes" {
+    aggregate {
+      task_id => "fileTypes_%{id}"
+      code => "
+            map['type']='challenges';
+            map['id'] = event.get('id')
+            map['fileTypes'] ||= []
+            map['fileTypes'] << { 'fileTypeId' => event.get('filetypeid'), 
+                                  'description' => event.get('description')
+                                }
+            event.cancel()                   
+          "
+      push_previous_map_as_event => true
+      push_map_as_event_on_timeout => true
+      timeout => 2
+    }
+
+    mutate {
+      remove_field => ["@version", "@timestamp"]
+    }
+  }
+}
+
 
 output {
   {% if ES_ENV == 'AWS' %}
