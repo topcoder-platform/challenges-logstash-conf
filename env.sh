@@ -10,3 +10,5 @@ export AWS_HOST=
 export AWS_REGION=
 export AWS_ACCESS_KEY=
 export AWS_ACCESS_SECRET=
+export ZONE_INFO=America/New_York
+export TZ=EST
